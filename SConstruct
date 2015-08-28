@@ -17,10 +17,6 @@ REPO = GetOption("repo")
 CALIB = GetOption("calib")
 
 
-def verify():
-    return
-#    return env.Command(name, dep, "verifyFooBar.py ...")
-
 def getButler():
     try:
         return getButler._butler
@@ -44,6 +40,10 @@ class Data(Struct):
     @property
     def name(self):
         return "%d-%d" % (self.visit, self.ccd)
+
+    @property
+    def dataId(self):
+        return dict(visit=self.visit, ccd=self.ccd)
 
     def id(self, prefix="--id"):
         return "%s visit=%d ccd=%d" % (prefix, self.visit, self.ccd)
@@ -92,68 +92,80 @@ allData = {"HSC-R": [Data(903334, 16),
 mapper = env.Command(os.path.join(REPO, "_mapper"), [],
                      ["mkdir -p " + REPO,
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
-                      ]                     )
+                      ])
+rawValid = validation.RawValidation()
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
-                     "ingestImages.py " + REPO + " " + RAW + "/*.fits --mode=link " +
-                     "-c clobber=True register.ignore=True --doraise")
-verify()
+                     ["ingestImages.py " + REPO + " " + RAW + "/*.fits --mode=link " +
+                      "-c clobber=True register.ignore=True --doraise"] +
+                     [rawValid.run(getButler(), data.dataId) for data in sum(allData.itervalues(), [])])
 calib = env.Command(os.path.join(REPO, "CALIB"), mapper,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
                      "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB"),
+                     validation.DetrendValidation().run(getButler(), data.dataId) for
+                     data in sum(allData.itervalues(), [])
                      ])
 
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 skymap = command("skymap", mapper,
-                 "makeSkyMap.py " + REPO + " -C skymap.py --doraise")
-verify()
+                 ["makeSkyMap.py " + REPO + " -C skymap.py --doraise",
+                  validation.SkymapValidation().run(getButler(), {}),
+                 ])
 
-patchId = "tract=0 patch=5,4"
+patchDataId = dict(tract=0, patch="5,4")
+patchId = " ".join("%s=%s" % k,v for k,v in patchDataId.iteritems())
 
 def processCoadds(filterName, dataList):
     ident = "--id " + patchId + " filter=" + filterName
     exposures = defaultdict(list)
     for data in dataList:
         exposures[data.visit].append(data)
+    warpValid = validation.WarpValidation()
     warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
-                     "makeCoaddTempExp.py " + REPO + " " + ident +
-                     " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise")
-             for exp in exposures]
-    verify()
+                     ["makeCoaddTempExp.py " + REPO + " " + ident +
+                      " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
+                      warpValid.run(getButler(), patchDataId, visit=exp)]) for exp in exposures]
+    coaddValid = validation.CoaddValidation()
     coadd = command("coadd-" + filterName, warps,
-                    "assembleCoadd.py " + REPO + " " + ident + " " +
-                    " ".join(data.id("--selectId") for data in dataList) + " --doraise")
-    verify()
+                    ["assembleCoadd.py " + REPO + " " + ident + " " +
+                     " ".join(data.id("--selectId") for data in dataList) + " --doraise",
+                     coaddValid.run(getButler(), patchDataId, filter=filterName)
+                     ])
     detect = command("detect-" + filterName, coadd,
-                     "detectCoaddSources.py " + REPO + " " + ident + " --doraise")
-    verify()
+                     ["detectCoaddSources.py " + REPO + " " + ident + " --doraise",
+                      validation.DetectionValidation().run(getButler(), patchDataId, filter=filterName)
+                      ])
     return detect
 
 coadds = {ff: processCoadds(ff, allData[ff]) for ff in allData}
 filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
-                          "mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
-                          "^".join(filterList) + " --doraise")
+                          ["mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
+                           "^".join(filterList) + " --doraise",
+                           validation.MergeDetectionsValidation().run(getButler(), patchDataId),
+                           ])
 
 def measureCoadds(filterName):
-    measure = command("measure-" + filterName, mergeDetections,
-                      "measureCoaddSources.py " + REPO + " --id " + patchId + " filter=" + filterName +
-                      " --doraise")
-    verify()
-    return measure
+    return command("measure-" + filterName, mergeDetections,
+                   ["measureCoaddSources.py " + REPO + " --id " + patchId + " filter=" + filterName +
+                    " --doraise",
+                    validation.MeasureValidation().run(getButler(), patchDataId, filter=filterName),
+                    ])
 
 measure = [measureCoadds(ff) for ff in filterList]
 
 mergeMeasurements = command("mergeMeasurements", measure,
-                            "mergeCoaddMeasurements.py " + REPO + " --id " + patchId +
-                            " filter=" + "^".join(filterList) + " --doraise")
+                            ["mergeCoaddMeasurements.py " + REPO + " --id " + patchId +
+                             " filter=" + "^".join(filterList) + " --doraise",
+                             validation.MergeMeasurementsValidation().run(getButler(), patchDataId),
+                             ])
 
 def forcedPhot(filterName):
-    run = command("forced-" + filterName, mergeMeasurements,
-                  "forcedPhotCoadd.py " + REPO + " --id " + patchId + " filter=" + filterName +
-                  " --doraise")
-    verify()
-    return run
+    return command("forced-" + filterName, mergeMeasurements,
+                   ["forcedPhotCoadd.py " + REPO + " --id " + patchId + " filter=" + filterName +
+                    " --doraise",
+                    validation.ForcedValidation().run(getButler(), patchDataID, filter=filterName),
+                    ])
 
 forced = [forcedPhot(ff) for ff in filterList]
 
