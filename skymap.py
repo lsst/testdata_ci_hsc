@@ -1,5 +1,10 @@
+root.skyMap["discrete"].projection = "TAN"
 root.skyMap["discrete"].raList = [320.36749197602893]
 root.skyMap["discrete"].decList = [0.3131554006070023]
 root.skyMap["discrete"].radiusList = [1.4388796242707318]
+root.skyMap["discrete"].rotation = 0.0
+root.skyMap["discrete"].patchBorder = 100
+root.skyMap["discrete"].tractOverlap = 0.0
 root.skyMap["discrete"].pixelScale = 0.168
+root.skyMap["discrete"].patchInnerDimensions = [4000, 4000]
 root.skyMap.name = "discrete"
