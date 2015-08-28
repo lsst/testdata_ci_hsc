@@ -1,3 +1,8 @@
+__all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
+           "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
+           "MergeMeasurementsValidation", "ForcedValidation",]
+
+from lsst.pex.logging import getDefaultLog
 
 class Validation(object):
     _datasets = [] # List of datasets to check we can read
@@ -9,11 +14,12 @@ class Validation(object):
 
     def __init__(self, log=None):
         if log is None:
-            log = pexLog.getDefaultLog()
+            log = getDefaultLog()
         self.log = log
 
     def assertTrue(self, description, success):
-        self.log.write("*** %s: %s\n" % (description, "PASS" if success else "FAIL"))
+        logger = self.log.info if success else self.log.fatal
+        logger("%s: %s" % (description, "PASS" if success else "FAIL"))
         if not success:
             raise AssertionError("Failed test: %s" % description)
 
@@ -38,7 +44,7 @@ class Validation(object):
     def validateDataset(self, butler, dataId, dataset):
         self.assertTrue("%s exists" % dataset, butler.datasetExists(datasetType=dataset, dataId=dataId))
         data = butler.get(dataset, dataId)
-        self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data)
+        self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
 
     def validateFile(self, butler, dataId, dataset):
         filename = butler.get(dataset + "_filename", dataId)[0]
@@ -61,19 +67,19 @@ class Validation(object):
             dataId.update(kwargs)
 
         for ds in self._datasets:
-            self.log.write("*** Validating dataset %s for %s\n" % (ds, dataId))
+            self.log.info("Validating dataset %s for %s" % (ds, dataId))
             self.validateDataset(butler, dataId, ds)
 
         for f in self._files:
-            self.log.write("*** Validating file %s for %s\n" % (f, dataId))
+            self.log.info("Validating file %s for %s" % (f, dataId))
             self.validateFile(butler, dataId, f)
 
         if self._sourceDataset is not None:
-            self.log.write("*** Validating source output for %s\n" % dataId)
+            self.log.info("Validating source output for %s" % dataId)
             self.validateSources(butler, dataId)
 
         if self._matchDataset is not None:
-            self.log.write("*** Validating matches output for %s\n" % dataId)
+            self.log.info("Validating matches output for %s" % dataId)
             self.validateMatches(butler, dataId)
 
 
@@ -106,7 +112,7 @@ class DetectionValidation(Validation):
     _sourceDataset = "deepCoadd_det"
 
 class MergeDetectionsValidation(Validation):
-    _datasets = ["mergeCoaddDetections_config", "mergeCoaddDetections_metadata", "deepCoadd_mergeDet_schema"]
+    _datasets = ["mergeCoaddDetections_config", "deepCoadd_mergeDet_schema"]
     _sourceDataset = "deepCoadd_mergeDet"
 
 class MeasureValidation(Validation):
@@ -115,7 +121,7 @@ class MeasureValidation(Validation):
     _matchDataset = "deepCoadd_srcMatch"
 
 class MergeMeasurementsValidation(Validation):
-    _datasets = ["mergeCoaddMeasurements_config", "mergeCoaddMeasurements_metadata", "deepCoadd_ref_schema"]
+    _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
     _sourceDataset = "deepCoadd_ref"
 
 class ForcedValidation(Validation):

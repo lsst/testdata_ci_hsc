@@ -3,6 +3,7 @@
 import os
 from collections import defaultdict
 from lsst.pipe.base import Struct
+from lsst.ci.hsc.validate import *
 
 env = Environment(ENV=os.environ)
 Execute(Mkdir(".scons"))
@@ -20,7 +21,7 @@ CALIB = GetOption("calib")
 def getButler():
     try:
         return getButler._butler
-    except NameError:
+    except AttributeError:
         from lsst.daf.persistence import Butler
         getButler._butler = Butler(REPO)
     return getButler._butler
@@ -93,39 +94,40 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), [],
                      ["mkdir -p " + REPO,
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
                       ])
-rawValid = validation.RawValidation()
+rawValid = RawValidation()
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
                      ["ingestImages.py " + REPO + " " + RAW + "/*.fits --mode=link " +
                       "-c clobber=True register.ignore=True --doraise"] +
                      [rawValid.run(getButler(), data.dataId) for data in sum(allData.itervalues(), [])])
 calib = env.Command(os.path.join(REPO, "CALIB"), mapper,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
-                     "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB"),
-                     validation.DetrendValidation().run(getButler(), data.dataId) for
-                     data in sum(allData.itervalues(), [])
-                     ])
+                     "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")] +
+                     [DetrendValidation().run(getButler(), data.dataId) for
+                      data in sum(allData.itervalues(), [])]
+                     )
 
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 skymap = command("skymap", mapper,
                  ["makeSkyMap.py " + REPO + " -C skymap.py --doraise",
-                  validation.SkymapValidation().run(getButler(), {}),
+                  SkymapValidation().run(getButler(), {}),
                  ])
 
 patchDataId = dict(tract=0, patch="5,4")
-patchId = " ".join("%s=%s" % k,v for k,v in patchDataId.iteritems())
+patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 
 def processCoadds(filterName, dataList):
     ident = "--id " + patchId + " filter=" + filterName
     exposures = defaultdict(list)
     for data in dataList:
         exposures[data.visit].append(data)
-    warpValid = validation.WarpValidation()
+    warpValid = WarpValidation()
     warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
                      ["makeCoaddTempExp.py " + REPO + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
-                      warpValid.run(getButler(), patchDataId, visit=exp)]) for exp in exposures]
-    coaddValid = validation.CoaddValidation()
+                      warpValid.run(getButler(), patchDataId, visit=exp, filter=filterName)]) for
+             exp in exposures]
+    coaddValid = CoaddValidation()
     coadd = command("coadd-" + filterName, warps,
                     ["assembleCoadd.py " + REPO + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " --doraise",
@@ -133,7 +135,7 @@ def processCoadds(filterName, dataList):
                      ])
     detect = command("detect-" + filterName, coadd,
                      ["detectCoaddSources.py " + REPO + " " + ident + " --doraise",
-                      validation.DetectionValidation().run(getButler(), patchDataId, filter=filterName)
+                      DetectionValidation().run(getButler(), patchDataId, filter=filterName)
                       ])
     return detect
 
@@ -142,14 +144,14 @@ filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                           ["mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
                            "^".join(filterList) + " --doraise",
-                           validation.MergeDetectionsValidation().run(getButler(), patchDataId),
+                           MergeDetectionsValidation().run(getButler(), patchDataId),
                            ])
 
 def measureCoadds(filterName):
     return command("measure-" + filterName, mergeDetections,
                    ["measureCoaddSources.py " + REPO + " --id " + patchId + " filter=" + filterName +
                     " --doraise",
-                    validation.MeasureValidation().run(getButler(), patchDataId, filter=filterName),
+                    MeasureValidation().run(getButler(), patchDataId, filter=filterName),
                     ])
 
 measure = [measureCoadds(ff) for ff in filterList]
@@ -157,14 +159,14 @@ measure = [measureCoadds(ff) for ff in filterList]
 mergeMeasurements = command("mergeMeasurements", measure,
                             ["mergeCoaddMeasurements.py " + REPO + " --id " + patchId +
                              " filter=" + "^".join(filterList) + " --doraise",
-                             validation.MergeMeasurementsValidation().run(getButler(), patchDataId),
+                             MergeMeasurementsValidation().run(getButler(), patchDataId),
                              ])
 
 def forcedPhot(filterName):
     return command("forced-" + filterName, mergeMeasurements,
                    ["forcedPhotCoadd.py " + REPO + " --id " + patchId + " filter=" + filterName +
                     " --doraise",
-                    validation.ForcedValidation().run(getButler(), patchDataID, filter=filterName),
+                    ForcedValidation().run(getButler(), patchDataId, filter=filterName),
                     ])
 
 forced = [forcedPhot(ff) for ff in filterList]
