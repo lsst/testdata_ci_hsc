@@ -2,7 +2,17 @@ __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidat
            "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
            "MergeMeasurementsValidation", "ForcedValidation",]
 
+import os
+import functools
 from lsst.pex.logging import getDefaultLog
+from lsst.daf.persistence import Butler
+
+_butler = {}
+def getButler(root):
+    if not root in _butler:
+        _butler[root] = Butler(root)
+    return butler[root]
+
 
 class Validation(object):
     _datasets = [] # List of datasets to check we can read
@@ -11,11 +21,20 @@ class Validation(object):
     _minSources = 100 # Minimum number of sources
     _matchDataset = None # Dataset name of matches
     _minMatches = 10 # Minimum number of matches
+    _butler = {}
 
-    def __init__(self, log=None):
+    def __init__(self, root, log=None):
         if log is None:
             log = getDefaultLog()
         self.log = log
+        self.root = root
+        self._butler = None
+
+    @property
+    def butler(self):
+        if not self._butler:
+            self._butler = Butler(self.root)
+        return self._butler
 
     def assertTrue(self, description, success):
         logger = self.log.info if success else self.log.fatal
@@ -41,46 +60,58 @@ class Validation(object):
     def assertLessEqual(self, description, num1, num2):
         self.assertTrue(description + " (%d <= %d)" % (num1, num2), num1 <= num2)
 
-    def validateDataset(self, butler, dataId, dataset):
-        self.assertTrue("%s exists" % dataset, butler.datasetExists(datasetType=dataset, dataId=dataId))
-        data = butler.get(dataset, dataId)
+    def validateDataset(self, dataId, dataset):
+        self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
+        data = self.butler.get(dataset, dataId)
         self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
 
-    def validateFile(self, butler, dataId, dataset):
-        filename = butler.get(dataset + "_filename", dataId)[0]
+    def validateFile(self, dataId, dataset):
+        filename = self.butler.get(dataset + "_filename", dataId)[0]
         self.assertTrue("%s exists on disk" % dataset, os.path.exists(filename))
         self.assertGreater("%s has non-zero size" % dataset, os.stat(filename).st_size, 0)
 
-    def validateSources(self, butler, dataId):
-        src = butler.get(self._sourceDataset, dataId)
+    def validateSources(self, dataId):
+        src = self.butler.get(self._sourceDataset, dataId)
         self.assertGreater("Number of sources", len(src), self._minSources)
 
-    def validateMatches(self, butler, dataId):
+    def validateMatches(self, dataId):
         # XXX lsst.meas.astrom.readMatches is gone!
         return
-        matches = measAstrom.readMatches(butler, dataId,)
+        matches = measAstrom.readMatches(self.butler, dataId,)
         self.assertGreater("Number of matches", len(matches), self._minMatches)
 
-    def run(self, butler, dataId, **kwargs):
+    def run(self, dataId, **kwargs):
         if kwargs:
             dataId = dataId.copy()
             dataId.update(kwargs)
 
         for ds in self._datasets:
             self.log.info("Validating dataset %s for %s" % (ds, dataId))
-            self.validateDataset(butler, dataId, ds)
+            self.validateDataset(dataId, ds)
 
         for f in self._files:
             self.log.info("Validating file %s for %s" % (f, dataId))
-            self.validateFile(butler, dataId, f)
+            self.validateFile(dataId, f)
 
         if self._sourceDataset is not None:
             self.log.info("Validating source output for %s" % dataId)
-            self.validateSources(butler, dataId)
+            self.validateSources(dataId)
 
         if self._matchDataset is not None:
             self.log.info("Validating matches output for %s" % dataId)
-            self.validateMatches(butler, dataId)
+            self.validateMatches(dataId)
+
+    @classmethod
+    def makeScons(cls, root, *args, **kwargs):
+        self = cls(root)
+        return functools.partial(self.scons, *args, **kwargs)
+
+    def scons(self, *args, **kwargs):
+        """Strip target,source,env from scons' call"""
+        kwargs.pop("target")
+        kwargs.pop("source")
+        kwargs.pop("env")
+        return self.run(*args, **kwargs)
 
 
 class RawValidation(Validation):
@@ -94,9 +125,6 @@ class SfmValidation(Validation):
                  "icSrc", "icSrc_schema", "src_schema"]
     _sourceDataset = "src"
     _matchDatasets = ["icMatch", "srcMatch"]
-    _files=["ossThumb", "flattenedThumb", "plotMagHist", "plotSeeingRough",
-            "plotSeeingRobust", "plotSeeingMap", "plotEllipseMap", "plotEllipticityMap",
-            "plotFwhmGrid", "plotEllipseGrid", "plotEllipticityGrid"]
 
 class SkymapValidation(Validation):
     _datasets = ["deepCoadd_skyMap"]
@@ -127,3 +155,4 @@ class MergeMeasurementsValidation(Validation):
 class ForcedValidation(Validation):
     _datasets = ["deepCoadd_forced_src_schema", "deepCoadd_forced_config", "deepCoadd_forced_metadata"]
     _sourceDataset = "deepCoadd_forced_src"
+

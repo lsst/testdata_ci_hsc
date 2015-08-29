@@ -17,15 +17,6 @@ RAW = GetOption("raw")
 REPO = GetOption("repo")
 CALIB = GetOption("calib")
 
-
-def getButler():
-    try:
-        return getButler._butler
-    except AttributeError:
-        from lsst.daf.persistence import Butler
-        getButler._butler = Butler(REPO)
-    return getButler._butler
-
 def command(target, source, cmd):
     name = os.path.join(".scons", target)
     if isinstance(cmd, str):
@@ -50,8 +41,10 @@ class Data(Struct):
         return "%s visit=%d ccd=%d" % (prefix, self.visit, self.ccd)
 
     def sfm(self, env):
-        return command("sfm-" + self.name, [ingest, calib],
-                       "processCcd.py " + REPO + " " + self.id() + " --doraise")
+        return command("sfm-" + self.name, [ingest, calib, preSfm],
+                       ["processCcd.py " + REPO + " " + self.id() + " --doraise",
+                        SfmValidation.makeScons(REPO, self.dataId),
+                        ])
 
 allData = {"HSC-R": [Data(903334, 16),
                      Data(903334, 22),
@@ -94,48 +87,49 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), [],
                      ["mkdir -p " + REPO,
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
                       ])
-rawValid = RawValidation()
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
                      ["ingestImages.py " + REPO + " " + RAW + "/*.fits --mode=link " +
                       "-c clobber=True register.ignore=True --doraise"] +
-                     [rawValid.run(getButler(), data.dataId) for data in sum(allData.itervalues(), [])])
-calib = env.Command(os.path.join(REPO, "CALIB"), mapper,
+                     [RawValidation.makeScons(REPO, data.dataId) for
+                      data in sum(allData.itervalues(), [])]
+                      )
+calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
                      "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")] +
-                     [DetrendValidation().run(getButler(), data.dataId) for
+                     [DetrendValidation.makeScons(REPO, data.dataId) for
                       data in sum(allData.itervalues(), [])]
                      )
 
+preSfm = command("sfm", mapper, "processCcd.py " + REPO + " --doraise") # Workaround race on schema/config
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 skymap = command("skymap", mapper,
                  ["makeSkyMap.py " + REPO + " -C skymap.py --doraise",
-                  SkymapValidation().run(getButler(), {}),
+                  SkymapValidation.makeScons(REPO, {}),
                  ])
 
 patchDataId = dict(tract=0, patch="5,4")
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 
+preDetect = command("detect", mapper, "detectCoaddSources.py " + REPO + " --doraise")
 def processCoadds(filterName, dataList):
     ident = "--id " + patchId + " filter=" + filterName
     exposures = defaultdict(list)
     for data in dataList:
         exposures[data.visit].append(data)
-    warpValid = WarpValidation()
     warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
                      ["makeCoaddTempExp.py " + REPO + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
-                      warpValid.run(getButler(), patchDataId, visit=exp, filter=filterName)]) for
+                      WarpValidation.makeScons(REPO, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
-    coaddValid = CoaddValidation()
     coadd = command("coadd-" + filterName, warps,
                     ["assembleCoadd.py " + REPO + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " --doraise",
-                     coaddValid.run(getButler(), patchDataId, filter=filterName)
+                     CoaddValidation.makeScons(REPO, patchDataId, filter=filterName)
                      ])
-    detect = command("detect-" + filterName, coadd,
+    detect = command("detect-" + filterName, [coadd, preDetect],
                      ["detectCoaddSources.py " + REPO + " " + ident + " --doraise",
-                      DetectionValidation().run(getButler(), patchDataId, filter=filterName)
+                      DetectionValidation.makeScons(REPO, patchDataId, filter=filterName)
                       ])
     return detect
 
@@ -144,14 +138,15 @@ filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                           ["mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
                            "^".join(filterList) + " --doraise",
-                           MergeDetectionsValidation().run(getButler(), patchDataId),
+                           MergeDetectionsValidation.makeScons(REPO, patchDataId),
                            ])
 
+preMeasure = command("measure", mergeDetections, "measureCoaddSources.py " + REPO + " --doraise")
 def measureCoadds(filterName):
-    return command("measure-" + filterName, mergeDetections,
+    return command("measure-" + filterName, preMeasure,
                    ["measureCoaddSources.py " + REPO + " --id " + patchId + " filter=" + filterName +
                     " --doraise",
-                    MeasureValidation().run(getButler(), patchDataId, filter=filterName),
+                    MeasureValidation.makeScons(REPO, patchDataId, filter=filterName),
                     ])
 
 measure = [measureCoadds(ff) for ff in filterList]
@@ -159,14 +154,15 @@ measure = [measureCoadds(ff) for ff in filterList]
 mergeMeasurements = command("mergeMeasurements", measure,
                             ["mergeCoaddMeasurements.py " + REPO + " --id " + patchId +
                              " filter=" + "^".join(filterList) + " --doraise",
-                             MergeMeasurementsValidation().run(getButler(), patchDataId),
+                             MergeMeasurementsValidation.makeScons(REPO, patchDataId),
                              ])
 
+preForced = command("forced", [mapper, mergeMeasurements], "forcedPhotCoadd.py " + REPO + " --doraise")
 def forcedPhot(filterName):
-    return command("forced-" + filterName, mergeMeasurements,
+    return command("forced-" + filterName, [mergeMeasurements, preForced],
                    ["forcedPhotCoadd.py " + REPO + " --id " + patchId + " filter=" + filterName +
                     " --doraise",
-                    ForcedValidation().run(getButler(), patchDataId, filter=filterName),
+                    ForcedValidation.makeScons(REPO, patchDataId, filter=filterName),
                     ])
 
 forced = [forcedPhot(ff) for ff in filterList]
