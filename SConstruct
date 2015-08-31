@@ -18,6 +18,10 @@ REPO = GetOption("repo")
 CALIB = GetOption("calib")
 
 def command(target, source, cmd):
+    """Run a command and record that we ran it
+
+    The record is in the form of a file in the ".scons" directory.
+    """
     name = os.path.join(".scons", target)
     if isinstance(cmd, str):
         cmd = [cmd]
@@ -26,21 +30,26 @@ def command(target, source, cmd):
     return out
 
 class Data(Struct):
+    """Data we can process"""
     def __init__(self, visit, ccd):
         Struct.__init__(self, visit=visit, ccd=ccd)
 
     @property
     def name(self):
+        """Returns a suitable name for this data"""
         return "%d-%d" % (self.visit, self.ccd)
 
     @property
     def dataId(self):
+        """Returns the dataId for this data"""
         return dict(visit=self.visit, ccd=self.ccd)
 
     def id(self, prefix="--id"):
+        """Returns a suitable --id command-line string"""
         return "%s visit=%d ccd=%d" % (prefix, self.visit, self.ccd)
 
     def sfm(self, env):
+        """Process this data through single frame measurement"""
         return command("sfm-" + self.name, [ingest, calib, preSfm],
                        ["processCcd.py " + REPO + " " + self.id() + " --doraise",
                         SfmValidation.makeScons(REPO, self.dataId),
@@ -83,6 +92,7 @@ allData = {"HSC-R": [Data(903334, 16),
                      ],
           }
 
+# Set up the data repository
 mapper = env.Command(os.path.join(REPO, "_mapper"), [],
                      ["mkdir -p " + REPO,
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
@@ -100,9 +110,11 @@ calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                       data in sum(allData.itervalues(), [])]
                      )
 
+# Single frame measurement
 preSfm = command("sfm", mapper, "processCcd.py " + REPO + " --doraise") # Workaround race on schema/config
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
+# Create skymap
 skymap = command("skymap", mapper,
                  ["makeSkyMap.py " + REPO + " -C skymap.py --doraise",
                   SkymapValidation.makeScons(REPO, {}),
@@ -111,8 +123,11 @@ skymap = command("skymap", mapper,
 patchDataId = dict(tract=0, patch="5,4")
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 
+
+# Coadd construction
 preDetect = command("detect", mapper, "detectCoaddSources.py " + REPO + " --doraise")
 def processCoadds(filterName, dataList):
+    """Generate coadds and run detection on them"""
     ident = "--id " + patchId + " filter=" + filterName
     exposures = defaultdict(list)
     for data in dataList:
@@ -134,6 +149,8 @@ def processCoadds(filterName, dataList):
     return detect
 
 coadds = {ff: processCoadds(ff, allData[ff]) for ff in allData}
+
+# Multiband processing
 filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                           ["mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
