@@ -3,7 +3,6 @@ __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidat
            "MergeMeasurementsValidation", "ForcedValidation",]
 
 import os
-import functools
 from lsst.pex.logging import getDefaultLog
 from lsst.daf.persistence import Butler
 
@@ -100,11 +99,6 @@ class Validation(object):
         if self._matchDataset is not None:
             self.log.info("Validating matches output for %s" % dataId)
             self.validateMatches(dataId)
-
-    @classmethod
-    def makeScons(cls, root, *args, **kwargs):
-        self = cls(root)
-        return functools.partial(self.scons, *args, **kwargs)
 
     def scons(self, *args, **kwargs):
         """Strip target,source,env from scons' call"""
