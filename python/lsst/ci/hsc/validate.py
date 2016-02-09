@@ -82,6 +82,7 @@ class Validation(object):
     def validateSources(self, dataId):
         src = self.butler.get(self._sourceDataset, dataId)
         self.assertGreater("Number of sources", len(src), self._minSources)
+        return src
 
     def validateMatches(self, dataId):
         # XXX lsst.meas.astrom.readMatches is gone!
@@ -151,6 +152,13 @@ class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
     _sourceDataset = "deepCoadd_meas"
     _matchDataset = "deepCoadd_srcMatch"
+
+    def validateSources(self, dataId):
+        catalog = Validation.validateSources(self, dataId)
+        self.assertTrue("calib_psfCandidate field exists in deepCoadd_meas catalog",
+                        "calib_psfCandidate" in catalog.schema)
+        self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
+                        "calib_psfUsed" in catalog.schema)
 
 class MergeMeasurementsValidation(Validation):
     _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
