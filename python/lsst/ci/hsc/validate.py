@@ -127,7 +127,7 @@ class WarpValidation(Validation):
     _datasets = ["deepCoadd_tempExp", "deep_makeCoaddTempExp_config", "deep_makeCoaddTempExp_metadata"]
 
 class CoaddValidation(Validation):
-    _datasets = ["deepCoadd", "deep_assembleCoadd_config", "deep_assembleCoadd_metadata"]
+    _datasets = ["deepCoadd", "deep_safeClipAssembleCoadd_config", "deep_safeClipAssembleCoadd_metadata"]
 
 class DetectionValidation(Validation):
     _datasets = ["deepCoadd_det_schema", "detectCoaddSources_config", "detectCoaddSources_metadata"]
