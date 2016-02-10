@@ -1,9 +1,31 @@
 # -*- python -*-
 
 import os
+import functools
 from collections import defaultdict
 from lsst.pipe.base import Struct
 from lsst.ci.hsc.validate import *
+
+from SCons import Action
+
+class CallAction(Action.FunctionAction):
+    def __init__(self, ident, func, **kw):
+        self.ident = ident
+        self.func = func
+        Action.FunctionAction.__init__(self, self.func, kw) 
+
+    # This function returns what is hashed to generate the function signature.
+    # This signature is what scons uses to decide if the build function has
+    # changed, and thus the target should be rebuilt. Unfortunately functools.partial
+    # or lambda cause scons to generate a different signature on each run, and thus
+    # rebuild everything. This function is overloaded here to ensure that a consistent
+    # function signature is generated
+    def get_contents(self, *args, **kwargs):
+        return str(self.ident)
+
+def makeSCons(cls, root, *args, **kwargs):
+    instance = cls(root)
+    return CallAction(str(args) + str(kwargs), functools.partial(instance.scons, *args, **kwargs))
 
 env = Environment(ENV=os.environ)
 Execute(Mkdir(".scons"))
@@ -52,7 +74,7 @@ class Data(Struct):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, [ingest, calib, preSfm],
                        ["processCcd.py " + REPO + " " + self.id() + " --doraise",
-                        SfmValidation.makeScons(REPO, self.dataId),
+                        makeSCons(SfmValidation, REPO, self.dataId),
                         ])
 
 allData = {"HSC-R": [Data(903334, 16),
@@ -100,13 +122,13 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), [],
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
                      ["ingestImages.py " + REPO + " " + RAW + "/*.fits --mode=link " +
                       "-c clobber=True register.ignore=True --doraise"] +
-                     [RawValidation.makeScons(REPO, data.dataId) for
+                     [makeSCons(RawValidation, REPO, data.dataId) for
                       data in sum(allData.itervalues(), [])]
                       )
 calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
                      "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")] +
-                     [DetrendValidation.makeScons(REPO, data.dataId) for
+                     [makeSCons(DetrendValidation, REPO, data.dataId) for
                       data in sum(allData.itervalues(), [])]
                      )
 
@@ -117,7 +139,7 @@ sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(
 # Create skymap
 skymap = command("skymap", mapper,
                  ["makeSkyMap.py " + REPO + " -C skymap.py --doraise",
-                  SkymapValidation.makeScons(REPO, {}),
+                  makeSCons(SkymapValidation, REPO, {}),
                  ])
 
 patchDataId = dict(tract=0, patch="5,4")
@@ -135,16 +157,16 @@ def processCoadds(filterName, dataList):
     warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
                      ["makeCoaddTempExp.py " + REPO + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
-                      WarpValidation.makeScons(REPO, patchDataId, visit=exp, filter=filterName)]) for
+                      makeSCons(WarpValidation, REPO, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
     coadd = command("coadd-" + filterName, warps,
                     ["assembleCoadd.py " + REPO + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " --doraise",
-                     CoaddValidation.makeScons(REPO, patchDataId, filter=filterName)
+                     makeSCons(CoaddValidation, REPO, patchDataId, filter=filterName)
                      ])
     detect = command("detect-" + filterName, [coadd, preDetect],
                      ["detectCoaddSources.py " + REPO + " " + ident + " --doraise",
-                      DetectionValidation.makeScons(REPO, patchDataId, filter=filterName)
+                      makeSCons(DetectionValidation, REPO, patchDataId, filter=filterName)
                       ])
     return detect
 
@@ -155,7 +177,7 @@ filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                           ["mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
                            "^".join(filterList) + " --doraise",
-                           MergeDetectionsValidation.makeScons(REPO, patchDataId),
+                           makeSCons(MergeDetectionsValidation, REPO, patchDataId),
                            ])
 
 preMeasure = command("measure", mergeDetections, "measureCoaddSources.py " + REPO + " --doraise")
@@ -163,7 +185,7 @@ def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
                    ["measureCoaddSources.py " + REPO + " --id " + patchId + " filter=" + filterName +
                     " --doraise",
-                    MeasureValidation.makeScons(REPO, patchDataId, filter=filterName),
+                    makeSCons(MeasureValidation, REPO, patchDataId, filter=filterName),
                     ])
 
 measure = [measureCoadds(ff) for ff in filterList]
@@ -171,7 +193,7 @@ measure = [measureCoadds(ff) for ff in filterList]
 mergeMeasurements = command("mergeMeasurements", measure,
                             ["mergeCoaddMeasurements.py " + REPO + " --id " + patchId +
                              " filter=" + "^".join(filterList) + " --doraise",
-                             MergeMeasurementsValidation.makeScons(REPO, patchDataId),
+                             makeSCons(MergeMeasurementsValidation, REPO, patchDataId),
                              ])
 
 preForced = command("forced", [mapper, mergeMeasurements], "forcedPhotCoadd.py " + REPO + " --doraise")
@@ -179,7 +201,7 @@ def forcedPhot(filterName):
     return command("forced-" + filterName, [mergeMeasurements, preForced],
                    ["forcedPhotCoadd.py " + REPO + " --id " + patchId + " filter=" + filterName +
                     " --doraise",
-                    ForcedValidation.makeScons(REPO, patchDataId, filter=filterName),
+                    makeSCons(ForcedValidation, REPO, patchDataId, filter=filterName),
                     ])
 
 forced = [forcedPhot(ff) for ff in filterList]

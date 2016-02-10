@@ -3,7 +3,6 @@ __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidat
            "MergeMeasurementsValidation", "ForcedValidation",]
 
 import os
-import functools
 from lsst.pex.logging import getDefaultLog
 from lsst.daf.persistence import Butler
 
@@ -101,11 +100,6 @@ class Validation(object):
             self.log.info("Validating matches output for %s" % dataId)
             self.validateMatches(dataId)
 
-    @classmethod
-    def makeScons(cls, root, *args, **kwargs):
-        self = cls(root)
-        return functools.partial(self.scons, *args, **kwargs)
-
     def scons(self, *args, **kwargs):
         """Strip target,source,env from scons' call"""
         kwargs.pop("target")
@@ -133,7 +127,7 @@ class WarpValidation(Validation):
     _datasets = ["deepCoadd_tempExp", "deep_makeCoaddTempExp_config", "deep_makeCoaddTempExp_metadata"]
 
 class CoaddValidation(Validation):
-    _datasets = ["deepCoadd", "deep_assembleCoadd_config", "deep_assembleCoadd_metadata"]
+    _datasets = ["deepCoadd", "deep_safeClipAssembleCoadd_config", "deep_safeClipAssembleCoadd_metadata"]
 
 class DetectionValidation(Validation):
     _datasets = ["deepCoadd_det_schema", "detectCoaddSources_config", "detectCoaddSources_metadata"]
