@@ -59,6 +59,17 @@ class Validation(object):
     def assertLessEqual(self, description, num1, num2):
         self.assertTrue(description + " (%d <= %d)" % (num1, num2), num1 <= num2)
 
+
+    def checkApertureCorrections(self, catalog):
+        """Utility function for derived classes that want to verify that aperture corrections were applied
+        """
+        for alg in ("base_PsfFlux", "base_GaussianFlux"):
+            self.assertTrue("Aperture correction fields for %s are present." % alg,
+                            (("%s_apCorr" % alg) in catalog.schema) and
+                            (("%s_apCorrSigma" % alg) in catalog.schema) and
+                            (("%s_flag_apCorr" % alg) in catalog.schema))
+
+
     def validateDataset(self, dataId, dataset):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
@@ -131,6 +142,10 @@ class SfmValidation(Validation):
     _sourceDataset = "src"
     _matchDatasets = ["icMatch", "srcMatch"]
 
+    def validateSources(self, dataId):
+        catalog = Validation.validateSources(self, dataId)
+        self.checkApertureCorrections(catalog)
+
 class SkymapValidation(Validation):
     _datasets = ["deepCoadd_skyMap"]
 
@@ -159,6 +174,7 @@ class MeasureValidation(Validation):
                         "calib_psfCandidate" in catalog.schema)
         self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
                         "calib_psfUsed" in catalog.schema)
+        self.checkApertureCorrections(catalog)
 
 class MergeMeasurementsValidation(Validation):
     _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
@@ -168,3 +184,6 @@ class ForcedValidation(Validation):
     _datasets = ["deepCoadd_forced_src_schema", "deepCoadd_forced_config", "deepCoadd_forced_metadata"]
     _sourceDataset = "deepCoadd_forced_src"
 
+    def validateSources(self, dataId):
+        catalog = Validation.validateSources(self, dataId)
+        self.checkApertureCorrections(catalog)
