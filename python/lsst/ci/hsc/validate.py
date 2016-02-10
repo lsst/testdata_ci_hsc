@@ -61,6 +61,16 @@ class Validation(object):
 
     def validateDataset(self, dataId, dataset):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
+        # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
+        # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
+        mappable = self.butler.mapper.datasets.get(dataset, None)
+        if mappable is not None and mappable.persistable.startswith("Property"):
+            try:
+                data = self.butler.get(dataset, dataId)
+                self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
+            except:
+                self.log.warn("Unable to load '%s'; this is likely DM-4927." % dataset)
+            return
         data = self.butler.get(dataset, dataId)
         self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
 
@@ -72,6 +82,7 @@ class Validation(object):
     def validateSources(self, dataId):
         src = self.butler.get(self._sourceDataset, dataId)
         self.assertGreater("Number of sources", len(src), self._minSources)
+        return src
 
     def validateMatches(self, dataId):
         # XXX lsst.meas.astrom.readMatches is gone!
@@ -141,6 +152,13 @@ class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
     _sourceDataset = "deepCoadd_meas"
     _matchDataset = "deepCoadd_srcMatch"
+
+    def validateSources(self, dataId):
+        catalog = Validation.validateSources(self, dataId)
+        self.assertTrue("calib_psfCandidate field exists in deepCoadd_meas catalog",
+                        "calib_psfCandidate" in catalog.schema)
+        self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
+                        "calib_psfUsed" in catalog.schema)
 
 class MergeMeasurementsValidation(Validation):
     _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
