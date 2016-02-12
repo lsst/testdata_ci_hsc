@@ -4,6 +4,8 @@ import os
 import functools
 from collections import defaultdict
 from lsst.pipe.base import Struct
+from lsst.sconsUtils.utils import libraryLoaderEnvironment
+from lsst.utils import getPackageDir
 from lsst.ci.hsc.validate import *
 
 from SCons import Action
@@ -12,7 +14,7 @@ class CallAction(Action.FunctionAction):
     def __init__(self, ident, func, **kw):
         self.ident = ident
         self.func = func
-        Action.FunctionAction.__init__(self, self.func, kw) 
+        Action.FunctionAction.__init__(self, self.func, kw)
 
     # This function returns what is hashed to generate the function signature.
     # This signature is what scons uses to decide if the build function has
@@ -28,6 +30,21 @@ def makeSCons(cls, root, *args, **kwargs):
     return CallAction(str(args) + str(kwargs), functools.partial(instance.scons, *args, **kwargs))
 
 env = Environment(ENV=os.environ)
+
+def getExecutable(package, script):
+    """
+    Given the name of a package and a script or other executable which lies
+    within its `bin` subdirectory, return an appropriate string which can be
+    used to set up an appropriate environment and execute the command.
+
+    This includes:
+    * Specifying an explict list of paths to be searched by the dynamic linker;
+    * Specifying a Python executable to be run (we assume the one on the default ${PATH} is appropriate);
+    * Specifying the complete path to the script.
+    """
+    return "{} python {}".format(libraryLoaderEnvironment(),
+                                 os.path.join(getPackageDir(package), "bin", script))
+
 Execute(Mkdir(".scons"))
 
 root = Dir('.').srcnode().abspath
@@ -73,9 +90,8 @@ class Data(Struct):
     def sfm(self, env):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, [ingest, calib, preSfm],
-                       ["processCcd.py " + REPO + " " + self.id() + " --doraise",
-                        makeSCons(SfmValidation, REPO, self.dataId),
-                        ])
+                       [getExecutable("pipe_tasks", "processCcd.py") + " " + REPO + " " + self.id() +
+                        " --doraise", makeSCons(SfmValidation, REPO, self.dataId)])
 
 allData = {"HSC-R": [Data(903334, 16),
                      Data(903334, 22),
@@ -119,9 +135,10 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), [],
                      ["mkdir -p " + REPO,
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
                       ])
+
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
-                     ["ingestImages.py " + REPO + " " + RAW + "/*.fits --mode=link " +
-                      "-c clobber=True register.ignore=True --doraise"] +
+                     [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
+                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True --doraise"] +
                      [makeSCons(RawValidation, REPO, data.dataId) for
                       data in sum(allData.itervalues(), [])]
                       )
@@ -133,21 +150,22 @@ calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                      )
 
 # Single frame measurement
-preSfm = command("sfm", mapper, "processCcd.py " + REPO + " --doraise") # Workaround race on schema/config
+# preSfm step is a work-around for a race on schema/config
+preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + REPO + " --doraise")
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 # Create skymap
 skymap = command("skymap", mapper,
-                 ["makeSkyMap.py " + REPO + " -C skymap.py --doraise",
-                  makeSCons(SkymapValidation, REPO, {}),
-                 ])
+                 [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + REPO + " -C skymap.py --doraise",
+                  makeSCons(SkymapValidation, REPO, {}) ])
 
 patchDataId = dict(tract=0, patch="5,4")
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 
 
 # Coadd construction
-preDetect = command("detect", mapper, "detectCoaddSources.py " + REPO + " --doraise")
+preDetect = command("detect", mapper,
+                    getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + REPO + " --doraise")
 def processCoadds(filterName, dataList):
     """Generate coadds and run detection on them"""
     ident = "--id " + patchId + " filter=" + filterName
@@ -155,18 +173,18 @@ def processCoadds(filterName, dataList):
     for data in dataList:
         exposures[data.visit].append(data)
     warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
-                     ["makeCoaddTempExp.py " + REPO + " " + ident +
+                     [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + REPO + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
                       makeSCons(WarpValidation, REPO, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
     coadd = command("coadd-" + filterName, warps,
-                    ["assembleCoadd.py " + REPO + " " + ident + " " +
+                    [getExecutable("pipe_tasks", "assembleCoadd.py") + " " + REPO + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " --doraise",
                      makeSCons(CoaddValidation, REPO, patchDataId, filter=filterName)
                      ])
     detect = command("detect-" + filterName, [coadd, preDetect],
-                     ["detectCoaddSources.py " + REPO + " " + ident + " --doraise",
-                      makeSCons(DetectionValidation, REPO, patchDataId, filter=filterName)
+                     [getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + REPO + " " + ident +
+                      " --doraise", makeSCons(DetectionValidation, REPO, patchDataId, filter=filterName)
                       ])
     return detect
 
@@ -175,33 +193,35 @@ coadds = {ff: processCoadds(ff, allData[ff]) for ff in allData}
 # Multiband processing
 filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
-                          ["mergeCoaddDetections.py " + REPO + " --id " + patchId + " filter=" +
-                           "^".join(filterList) + " --doraise",
-                           makeSCons(MergeDetectionsValidation, REPO, patchDataId),
+                          [getExecutable("pipe_tasks", "mergeCoaddDetections.py") + " " + REPO + " --id " +
+                           patchId + " filter=" + "^".join(filterList) + " --doraise",
+                           makeSCons(MergeDetectionsValidation, REPO, patchDataId)
                            ])
 
-preMeasure = command("measure", mergeDetections, "measureCoaddSources.py " + REPO + " --doraise")
+preMeasure = command("measure", mergeDetections,
+                     getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + REPO + " --doraise")
 def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
-                   ["measureCoaddSources.py " + REPO + " --id " + patchId + " filter=" + filterName +
-                    " --doraise",
-                    makeSCons(MeasureValidation, REPO, patchDataId, filter=filterName),
+                   [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + REPO + " --id " +
+                    patchId + " filter=" + filterName + " --doraise",
+                    makeSCons(MeasureValidation, REPO, patchDataId, filter=filterName)
                     ])
 
 measure = [measureCoadds(ff) for ff in filterList]
 
 mergeMeasurements = command("mergeMeasurements", measure,
-                            ["mergeCoaddMeasurements.py " + REPO + " --id " + patchId +
-                             " filter=" + "^".join(filterList) + " --doraise",
-                             makeSCons(MergeMeasurementsValidation, REPO, patchDataId),
+                            [getExecutable("pipe_tasks", "mergeCoaddMeasurements.py") + " " + REPO +
+                             " --id " + patchId + " filter=" + "^".join(filterList) + " --doraise",
+                             makeSCons(MergeMeasurementsValidation, REPO, patchDataId)
                              ])
 
-preForced = command("forced", [mapper, mergeMeasurements], "forcedPhotCoadd.py " + REPO + " --doraise")
+preForced = command("forced", [mapper, mergeMeasurements],
+                    getExecutable("meas_base", "forcedPhotCoadd.py") + " " + REPO + " --doraise")
 def forcedPhot(filterName):
     return command("forced-" + filterName, [mergeMeasurements, preForced],
-                   ["forcedPhotCoadd.py " + REPO + " --id " + patchId + " filter=" + filterName +
-                    " --doraise",
-                    makeSCons(ForcedValidation, REPO, patchDataId, filter=filterName),
+                   [getExecutable("meas_base", "forcedPhotCoadd.py") + " " + REPO + " --id " + patchId +
+                    " filter=" + filterName + " --doraise",
+                    makeSCons(ForcedValidation, REPO, patchDataId, filter=filterName)
                     ])
 
 forced = [forcedPhot(ff) for ff in filterList]
