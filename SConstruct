@@ -14,7 +14,7 @@ class CallAction(Action.FunctionAction):
     def __init__(self, ident, func, **kw):
         self.ident = ident
         self.func = func
-        Action.FunctionAction.__init__(self, self.func, kw) 
+        Action.FunctionAction.__init__(self, self.func, kw)
 
     # This function returns what is hashed to generate the function signature.
     # This signature is what scons uses to decide if the build function has
