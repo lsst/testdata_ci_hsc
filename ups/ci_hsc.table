@@ -1,3 +1,8 @@
 setupRequired(pipe_tasks)
 setupRequired(obs_subaru)
+# Explicitly set up the local version of an SDSS astrometry net data
+#  directory for use by obs_subaru.  The *version* name is important
+#  as obs_subaru uses it to determine which filters to use for color terms.
+envSet(SETUP_ASTROMETRY_NET_DATA, astrometry_net_data sdss-dr9-fink-v5b)
+envSet(ASTROMETRY_NET_DATA_DIR, ${PRODUCT_DIR}/sdss-dr9-fink-v5b)
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
