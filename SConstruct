@@ -226,5 +226,8 @@ def forcedPhot(filterName):
 
 forced = [forcedPhot(ff) for ff in filterList]
 
+# Add a no-op install target to keep Jenkins happy.
+env.Alias("install", "SConstruct")
+
 env.Alias("all", forced)
 Default(forced)
