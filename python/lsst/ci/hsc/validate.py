@@ -75,7 +75,9 @@ class Validation(object):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
         # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
-        mappable = self.butler.mapper.datasets.get(dataset, None)
+        mappers = self.butler.repository.mappers()
+        mapper = mappers[0]  # Should only be one right now, but someday there can be several.
+        mappable = mapper.datasets.get(dataset, None)
         if mappable is not None and mappable.persistable.startswith("Property"):
             try:
                 data = self.butler.get(dataset, dataId)
