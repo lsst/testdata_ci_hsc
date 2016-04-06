@@ -1,5 +1,13 @@
-setupRequired(pipe_tasks)
+setupRequired(daf_persistence)
+setupRequired(meas_astrom)
+setupRequired(numpy)
 setupRequired(obs_subaru)
+setupRequired(pex_logging)
+setupRequired(pipe_base)
+setupRequired(pipe_tasks)
+setupRequired(scons)
+setupRequired(sconsUtils)
+setupRequired(utils)
 # Explicitly set up the local version of an SDSS astrometry net data
 #  directory for use by obs_subaru.  The *version* name is important
 #  as obs_subaru uses it to determine which filters to use for color terms.
