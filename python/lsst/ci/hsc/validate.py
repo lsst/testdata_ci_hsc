@@ -6,6 +6,7 @@ import os
 import numpy
 from lsst.pex.logging import getDefaultLog
 from lsst.daf.persistence import Butler
+from lsst.meas.astrom import LoadAstrometryNetObjectsTask
 
 _butler = {}
 def getButler(root):
@@ -99,9 +100,11 @@ class Validation(object):
         return src
 
     def validateMatches(self, dataId):
-        # XXX lsst.meas.astrom.readMatches is gone!
-        return
-        matches = measAstrom.readMatches(self.butler, dataId,)
+        sources = self.butler.get(self._sourceDataset, dataId)
+        packedMatches = self.butler.get(self._matchDataset, dataId)
+        refObjLoaderConfig = LoadAstrometryNetObjectsTask.ConfigClass()
+        refObjLoader = LoadAstrometryNetObjectsTask(refObjLoaderConfig)
+        matches = refObjLoader.joinMatchListWithCatalog(packedMatches, sources)
         self.assertGreater("Number of matches", len(matches), self._minMatches)
 
     def run(self, dataId, **kwargs):
@@ -143,7 +146,7 @@ class SfmValidation(Validation):
     _datasets = ["processCcd_config", "processCcd_metadata", "calexp", "calexpBackground",
                  "icSrc", "icSrc_schema", "src_schema"]
     _sourceDataset = "src"
-    _matchDatasets = ["icMatch", "srcMatch"]
+    _matchDataset = "srcMatch"
 
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
