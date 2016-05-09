@@ -1,5 +1,7 @@
 setupRequired(daf_persistence)
 setupRequired(meas_astrom)
+setupRequired(meas_extensions_psfex)
+setupRequired(meas_extensions_shapeHSM)
 setupRequired(numpy)
 setupRequired(obs_subaru)
 setupRequired(pex_logging)
