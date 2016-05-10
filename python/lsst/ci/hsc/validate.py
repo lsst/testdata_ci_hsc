@@ -4,6 +4,8 @@ __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidat
 
 import os
 import numpy
+import argparse
+from lsst.base import setNumThreads
 from lsst.pex.logging import getDefaultLog
 from lsst.daf.persistence import Butler
 from lsst.meas.astrom import LoadAstrometryNetObjectsTask
@@ -13,6 +15,48 @@ def getButler(root):
     if not root in _butler:
         _butler[root] = Butler(root)
     return butler[root]
+
+
+class IdValueAction(argparse.Action):
+    """argparse action callback to process a data ID
+
+    We don't support as full a range of operators as does the pipe_base ArgumentParser
+    (e.g., '^' to join multiple values, and the '..' for a range are NOT supported).
+    We're just stuffing "key=value" pairs into a list of dicts.
+    """
+    def __call__(self, parser, namespace, values, option_string):
+        result = {}
+        for nameValue in values:
+            key, _, value = nameValue.partition("=")
+            if key in result:
+                parser.error("%s appears multiple times in %s" % (key, option_string))
+            result[key] = value
+        argName = option_string.lstrip("-")
+        getattr(namespace, argName).append(result)
+
+
+def main():
+    setNumThreads(0)  # We're being run in parallel
+    parser = argparse.ArgumentParser()
+    parser.add_argument("cls", help="Name of validation class")
+    parser.add_argument("root", help="Data repository root")
+    parser.add_argument("--rerun", default=None, help="Rerun name")
+    parser.add_argument("--id", nargs="*", action=IdValueAction, default=[],
+                        help="Data identifier, e.g., visit=123 ccd=45", metavar="KEY=VALUE")
+    args = parser.parse_args()
+
+    if not args.cls.endswith("Validation") or args.cls not in globals():
+        parser.error("Unrecognised validation class: %s" % (args.cls))
+
+    root = args.root
+    if args.rerun:
+        root = os.path.join(root, "rerun", args.rerun)
+
+    validator = globals()[args.cls](root)
+    for dataId in args.id:
+        dataId = {key: int(value) if key in ("visit", "ccd", "tract") else value for
+                  key, value in dataId.iteritems()}
+        validator.run(dataId)
 
 
 class Validation(object):

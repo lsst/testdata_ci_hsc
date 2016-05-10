@@ -3,3 +3,4 @@
 .scons
 DATA
 *.pyc
+bin/

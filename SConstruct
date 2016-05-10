@@ -8,28 +8,30 @@ from lsst.sconsUtils.utils import libraryLoaderEnvironment
 from lsst.utils import getPackageDir
 from lsst.ci.hsc.validate import *
 
-from SCons import Action
-
-class CallAction(Action.FunctionAction):
-    def __init__(self, ident, func, **kw):
-        self.ident = ident
-        self.func = func
-        Action.FunctionAction.__init__(self, self.func, kw)
-
-    # This function returns what is hashed to generate the function signature.
-    # This signature is what scons uses to decide if the build function has
-    # changed, and thus the target should be rebuilt. Unfortunately functools.partial
-    # or lambda cause scons to generate a different signature on each run, and thus
-    # rebuild everything. This function is overloaded here to ensure that a consistent
-    # function signature is generated
-    def get_contents(self, *args, **kwargs):
-        return str(self.ident)
-
-def makeSCons(cls, root, *args, **kwargs):
-    instance = cls(root)
-    return CallAction(str(args) + str(kwargs), functools.partial(instance.scons, *args, **kwargs))
+from SCons.Script import SConscript
+SConscript(os.path.join(".", "bin.src", "SConscript"))  # build bin scripts
 
 env = Environment(ENV=os.environ)
+env["ENV"]["OMP_NUM_THREADS"] = "1"  # Disable threading; we're parallelising at a higher level
+
+def validate(cls, root, dataId=None, **kwargs):
+    """!Construct a command-line for validation
+
+    @param cls  Validation class to use
+    @param root  Data repo root directory
+    @param dataId  Data identifier dict, or None
+    @param kwargs  Additional key/value pairs to add to dataId
+    @return Command-line string to run validation
+    """
+    if dataId:
+        dataId = dataId.copy()
+        dataId.update(kwargs)
+    else:
+        assert len(kwargs) == 0  # There's no dataId to update
+    cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root,]
+    if dataId:
+        cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.iteritems()))]
+    return " ".join(cmd)
 
 def getExecutable(package, script):
     """
@@ -95,7 +97,7 @@ class Data(Struct):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, [ingest, calib, preSfm],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() +
-                        " --doraise", makeSCons(SfmValidation, DATADIR, self.dataId)])
+                        " --doraise", validate(SfmValidation, DATADIR, self.dataId)])
 
 allData = {"HSC-R": [Data(903334, 16),
                      Data(903334, 22),
@@ -135,7 +137,7 @@ allData = {"HSC-R": [Data(903334, 16),
           }
 
 # Set up the data repository
-mapper = env.Command(os.path.join(REPO, "_mapper"), [],
+mapper = env.Command(os.path.join(REPO, "_mapper"), ["bin"],
                      ["mkdir -p " + REPO,
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
                       ])
@@ -143,13 +145,13 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), [],
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
                      [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
                       "/*.fits --mode=link " + "-c clobber=True register.ignore=True --doraise"] +
-                     [makeSCons(RawValidation, REPO, data.dataId) for
+                     [validate(RawValidation, REPO, data.dataId) for
                       data in sum(allData.itervalues(), [])]
                       )
 calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
                      "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")] +
-                     [makeSCons(DetrendValidation, REPO, data.dataId) for
+                     [validate(DetrendValidation, REPO, data.dataId) for
                       data in sum(allData.itervalues(), [])]
                      )
 
@@ -161,7 +163,7 @@ sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(
 # Create skymap
 skymap = command("skymap", mapper,
                  [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py --doraise",
-                  makeSCons(SkymapValidation, DATADIR, {}) ])
+                  validate(SkymapValidation, DATADIR)])
 
 patchDataId = dict(tract=0, patch="5,4")
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
@@ -179,16 +181,16 @@ def processCoadds(filterName, dataList):
     warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
                      [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
-                      makeSCons(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
+                      validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
     coadd = command("coadd-" + filterName, warps,
                     [getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " --doraise",
-                     makeSCons(CoaddValidation, DATADIR, patchDataId, filter=filterName)
+                     validate(CoaddValidation, DATADIR, patchDataId, filter=filterName)
                      ])
     detect = command("detect-" + filterName, [coadd, preDetect],
                      [getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + ident +
-                      " --doraise", makeSCons(DetectionValidation, DATADIR, patchDataId, filter=filterName)
+                      " --doraise", validate(DetectionValidation, DATADIR, patchDataId, filter=filterName)
                       ])
     return detect
 
@@ -199,7 +201,7 @@ filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                           [getExecutable("pipe_tasks", "mergeCoaddDetections.py") + " " + PROC + " --id " +
                            patchId + " filter=" + "^".join(filterList) + " --doraise",
-                           makeSCons(MergeDetectionsValidation, DATADIR, patchDataId)
+                           validate(MergeDetectionsValidation, DATADIR, patchDataId)
                            ])
 
 preMeasure = command("measure", mergeDetections,
@@ -208,7 +210,7 @@ def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
                    [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --id " +
                     patchId + " filter=" + filterName + " --doraise",
-                    makeSCons(MeasureValidation, DATADIR, patchDataId, filter=filterName)
+                    validate(MeasureValidation, DATADIR, patchDataId, filter=filterName)
                     ])
 
 measure = [measureCoadds(ff) for ff in filterList]
@@ -216,7 +218,7 @@ measure = [measureCoadds(ff) for ff in filterList]
 mergeMeasurements = command("mergeMeasurements", measure,
                             [getExecutable("pipe_tasks", "mergeCoaddMeasurements.py") + " " + PROC +
                              " --id " + patchId + " filter=" + "^".join(filterList) + " --doraise",
-                             makeSCons(MergeMeasurementsValidation, DATADIR, patchDataId)
+                             validate(MergeMeasurementsValidation, DATADIR, patchDataId)
                              ])
 
 preForced = command("forced", [mapper, mergeMeasurements],
@@ -225,7 +227,7 @@ def forcedPhot(filterName):
     return command("forced-" + filterName, [mergeMeasurements, preForced],
                    [getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --id " + patchId +
                     " filter=" + filterName + " --doraise",
-                    makeSCons(ForcedValidation, DATADIR, patchDataId, filter=filterName)
+                    validate(ForcedValidation, DATADIR, patchDataId, filter=filterName)
                     ])
 
 forced = [forcedPhot(ff) for ff in filterList]
