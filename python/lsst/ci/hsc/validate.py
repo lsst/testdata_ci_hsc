@@ -10,12 +10,6 @@ from lsst.pex.logging import getDefaultLog
 from lsst.daf.persistence import Butler
 from lsst.meas.astrom import LoadAstrometryNetObjectsTask
 
-_butler = {}
-def getButler(root):
-    if not root in _butler:
-        _butler[root] = Butler(root)
-    return butler[root]
-
 
 class IdValueAction(argparse.Action):
     """argparse action callback to process a data ID
