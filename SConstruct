@@ -95,7 +95,7 @@ class Data(Struct):
 
     def sfm(self, env):
         """Process this data through single frame measurement"""
-        return command("sfm-" + self.name, [ingest, calib, preSfm],
+        return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() +
                         " --doraise", validate(SfmValidation, DATADIR, self.dataId)])
 
@@ -144,16 +144,18 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), ["bin"],
 
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
                      [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
-                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True --doraise"] +
-                     [validate(RawValidation, REPO, data.dataId) for
-                      data in sum(allData.itervalues(), [])]
+                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True --doraise"]
                       )
 calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
-                     "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")] +
-                     [validate(DetrendValidation, REPO, data.dataId) for
-                      data in sum(allData.itervalues(), [])]
+                     "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")]
                      )
+ingestValidations = [command("ingestValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
+                             validate(RawValidation, REPO, data.dataId)) for
+                     data in sum(allData.itervalues(), [])]
+calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, calib,
+                            validate(DetrendValidation, REPO, data.dataId)) for
+                    data in sum(allData.itervalues(), [])]
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config
