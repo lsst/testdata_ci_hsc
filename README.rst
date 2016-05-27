@@ -30,13 +30,8 @@ Reference catalog
 -----------------
 
 An appropriate astrometric reference catalog is provided in the
-``sdss-dr9-fink-v5b`` directory. It must be declared to `EUPS`_ and set up
-before using this package::
-
-  $ eups declare -r ${CI_HSC_DIR}/sdss-dr9-fink-v5b astrometry_net_data sdss-ci_hsc
-  $ setup -j astrometry_net_data sdss-ci_hsc
-
-.. _EUPS: https://github.com/RobertLuptonTheGood/eups
+``sdss-dr9-fink-v5b`` directory.  This is specified in `ups/ci_hsc.table`
+and is set up automatically when ``ci_hsc`` is ``setup`` above.
 
 Running the tests
 -----------------
