@@ -158,7 +158,7 @@ calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, c
                     data in sum(allData.itervalues(), [])]
 
 # Single frame measurement
-# preSfm step is a work-around for a race on schema/config
+# preSfm step is a work-around for a race on schema/config/versions
 preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " --doraise")
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
@@ -172,6 +172,11 @@ patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 
 
 # Coadd construction
+# preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
+preWarp = command("warp", mapper,
+                  getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " --doraise")
+preCoadd = command("coadd", mapper,
+                   getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " --doraise")
 preDetect = command("detect", mapper,
                     getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " --doraise")
 def processCoadds(filterName, dataList):
@@ -180,12 +185,13 @@ def processCoadds(filterName, dataList):
     exposures = defaultdict(list)
     for data in dataList:
         exposures[data.visit].append(data)
-    warps = [command("warp-%d" % exp, [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap],
+    warps = [command("warp-%d" % exp,
+                     [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap, preWarp],
                      [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
                       validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
-    coadd = command("coadd-" + filterName, warps,
+    coadd = command("coadd-" + filterName, warps + [preCoadd],
                     [getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " --doraise",
                      validate(CoaddValidation, DATADIR, patchDataId, filter=filterName)
@@ -206,6 +212,7 @@ mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                            validate(MergeDetectionsValidation, DATADIR, patchDataId)
                            ])
 
+# preMeasure step is a work-around for a race on schema/config/versions
 preMeasure = command("measure", mergeDetections,
                      getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --doraise")
 def measureCoadds(filterName):
@@ -223,6 +230,7 @@ mergeMeasurements = command("mergeMeasurements", measure,
                              validate(MergeMeasurementsValidation, DATADIR, patchDataId)
                              ])
 
+# preForced step is a work-around for a race on schema/config/versions
 preForced = command("forced", [mapper, mergeMeasurements],
                     getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --doraise")
 def forcedPhot(filterName):
