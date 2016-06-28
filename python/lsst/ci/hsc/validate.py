@@ -189,6 +189,17 @@ class SfmValidation(Validation):
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
         self.checkApertureCorrections(catalog)
+        # Check that at least 95% of the stars we used to model the PSF end up classified as stars. We 
+        # certainly need much more purity than that to build good PSF models, but
+        # this should verify that aperture correction and extendendess are running and configured reasonably
+        # (but it may not be sensitive enough to detect subtle bugs).
+        psfStars = catalog.get("calib_psfUsed")
+        extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
+        self.assertGreater(
+            "At least 95% of sources used to build the PSF are classified as stars",
+            numpy.logical_and(extStars, psfStars).sum(),
+            0.95*psfStars.sum()
+        )
 
 class SkymapValidation(Validation):
     _datasets = ["deepCoadd_skyMap"]
