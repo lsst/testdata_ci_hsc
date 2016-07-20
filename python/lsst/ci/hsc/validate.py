@@ -114,18 +114,14 @@ class Validation(object):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
         # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
-        mappers = self.butler.repository.mappers()
-        mapper = mappers[0]  # Should only be one right now, but someday there can be several.
-        mappable = mapper.datasets.get(dataset, None)
-        if mappable is not None and mappable.persistable.startswith("Property"):
-            try:
-                data = self.butler.get(dataset, dataId)
-                self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
-            except:
+        try:
+            data = self.butler.get(dataset, dataId)
+            self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
+        except:
+            if dataset.endswith("metadata"):
                 self.log.warn("Unable to load '%s'; this is likely DM-4927." % dataset)
-            return
-        data = self.butler.get(dataset, dataId)
-        self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
+                return
+            raise
 
     def validateFile(self, dataId, dataset):
         filename = self.butler.get(dataset + "_filename", dataId)[0]
