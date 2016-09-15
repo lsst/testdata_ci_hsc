@@ -175,7 +175,8 @@ patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 # Coadd construction
 # preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
 preWarp = command("warp", mapper,
-                  getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " --doraise")
+                  getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " --doraise"\
+                  " -c doApplyUberCal=False ")
 preCoadd = command("coadd", mapper,
                    getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " --doraise")
 preDetect = command("detect", mapper,
@@ -189,7 +190,8 @@ def processCoadds(filterName, dataList):
     warps = [command("warp-%d" % exp,
                      [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap, preWarp],
                      [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
-                      " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise",
+                      " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise"\
+                      " -c doApplyUberCal=False ",
                       validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
     coadd = command("coadd-" + filterName, warps + [preCoadd],
