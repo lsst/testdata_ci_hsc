@@ -250,3 +250,5 @@ env.Alias("install", "SConstruct")
 
 env.Alias("all", forced)
 Default(forced)
+
+env.Clean(forced, [".scons", "DATA/rerun/ci_hsc"])
