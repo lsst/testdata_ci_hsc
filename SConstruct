@@ -97,7 +97,7 @@ class Data(Struct):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() +
-                        " --doraise -c charImage.installSimplePsf.fwhm=4 ", validate(SfmValidation, DATADIR, self.dataId)])
+                        " --doraise", validate(SfmValidation, DATADIR, self.dataId)])
 
 allData = {"HSC-R": [Data(903334, 16),
                      Data(903334, 22),
@@ -159,8 +159,7 @@ calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, c
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
-preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " --doraise"\
-                 " -c charImage.installSimplePsf.fwhm=4 ")
+preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " --doraise")
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 # Create skymap
