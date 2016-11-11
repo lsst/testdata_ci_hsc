@@ -89,15 +89,28 @@ class Data(Struct):
         """Returns the dataId for this data"""
         return dict(visit=self.visit, ccd=self.ccd)
 
-    def id(self, prefix="--id"):
+    def id(self, prefix="--id", tract=None):
         """Returns a suitable --id command-line string"""
-        return "%s visit=%d ccd=%d" % (prefix, self.visit, self.ccd)
+        r = "%s visit=%d ccd=%d" % (prefix, self.visit, self.ccd)
+        if tract is not None:
+            r += " tract=%d" % tract
+        return r
 
     def sfm(self, env):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() +
                         " --doraise", validate(SfmValidation, DATADIR, self.dataId)])
+
+    def forced(self, env, tract):
+        """Process this data through CCD-level forced photometry"""
+        dataId = self.dataId.copy()
+        dataId["tract"] = tract
+        return command("forced-ccd-" + self.name, ingestValidations + calibValidations + [preForcedPhotCcd],
+                       [getExecutable("meas_base", "forcedPhotCcd.py") + " " + PROC + " " +
+                       self.id(tract=tract) + " --doraise" + " -C forcedPhotCcdConfig.py",
+                       validate(ForcedPhotCcdValidation, DATADIR, dataId)])
+
 
 allData = {"HSC-R": [Data(903334, 16),
                      Data(903334, 22),
@@ -232,22 +245,31 @@ mergeMeasurements = command("mergeMeasurements", measure,
                              validate(MergeMeasurementsValidation, DATADIR, patchDataId)
                              ])
 
-# preForced step is a work-around for a race on schema/config/versions
-preForced = command("forced", [mapper, mergeMeasurements],
-                    getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --doraise")
-def forcedPhot(filterName):
-    return command("forced-" + filterName, [mergeMeasurements, preForced],
+# preForcedPhotCoadd step is a work-around for a race on schema/config/versions
+preForcedPhotCoadd = command("forcedPhotCoadd", [mapper, mergeMeasurements],
+                             getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --doraise")
+def forcedPhotCoadd(filterName):
+    return command("forced-coadd-" + filterName, [mergeMeasurements, preForcedPhotCoadd],
                    [getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --id " + patchId +
                     " filter=" + filterName + " --doraise",
-                    validate(ForcedValidation, DATADIR, patchDataId, filter=filterName)
+                    validate(ForcedPhotCoaddValidation, DATADIR, patchDataId, filter=filterName)
                     ])
 
-forced = [forcedPhot(ff) for ff in filterList]
+forcedPhotCoadd = [forcedPhotCoadd(ff) for ff in filterList]
+
+# preForcedPhotCcd step is a work-around for a race on schema/config/versions
+preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
+                           getExecutable("meas_base", "forcedPhotCcd.py") + " " + PROC +
+                           " -C forcedPhotCcdConfig.py" + " --doraise")
+
+forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.itervalues(), [])]
+
+everything = [forcedPhotCcd, forcedPhotCoadd]
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")
 
-env.Alias("all", forced)
-Default(forced)
+env.Alias("all", everything)
+Default(everything)
 
-env.Clean(forced, [".scons", "DATA/rerun/ci_hsc"])
+env.Clean(everything, [".scons", "DATA/rerun/ci_hsc"])
