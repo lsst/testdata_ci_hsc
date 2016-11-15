@@ -1,6 +1,6 @@
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
            "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
-           "MergeMeasurementsValidation", "ForcedValidation",]
+           "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",]
 
 import os
 import numpy
@@ -243,10 +243,15 @@ class MergeMeasurementsValidation(Validation):
     _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
     _sourceDataset = "deepCoadd_ref"
 
-class ForcedValidation(Validation):
+class ForcedPhotCoaddValidation(Validation):
     _datasets = ["deepCoadd_forced_src_schema", "deepCoadd_forced_config", "deepCoadd_forced_metadata"]
     _sourceDataset = "deepCoadd_forced_src"
 
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
         self.checkApertureCorrections(catalog)
+
+class ForcedPhotCcdValidation(Validation):
+    _datasets = ["forcedPhotCcd_config", "forcedPhotCcd_metadata",
+                 "forced_src", "forced_src_schema"]
+    _sourceDataset = "forced_src"
