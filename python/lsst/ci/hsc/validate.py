@@ -6,8 +6,8 @@ import os
 import numpy
 import argparse
 from lsst.base import setNumThreads
-from lsst.pex.logging import getDefaultLog
 from lsst.daf.persistence import Butler
+import lsst.log
 from lsst.meas.astrom import LoadAstrometryNetObjectsTask
 
 
@@ -64,7 +64,7 @@ class Validation(object):
 
     def __init__(self, root, log=None):
         if log is None:
-            log = getDefaultLog()
+            log = lsst.log.Log.getDefaultLogger()
         self.log = log
         self.root = root
         self._butler = None
