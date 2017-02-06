@@ -1,3 +1,2 @@
 [lfs]
         url = https://git-lfs.lsst.codes
-        batch = false  # Not respected by git-lfs. Set to be explicit.
