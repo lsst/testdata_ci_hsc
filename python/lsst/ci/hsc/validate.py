@@ -212,7 +212,7 @@ class SkymapValidation(Validation):
     _datasets = ["deepCoadd_skyMap"]
 
 class WarpValidation(Validation):
-    _datasets = ["deepCoadd_tempExp", "deep_makeCoaddTempExp_config", "deep_makeCoaddTempExp_metadata"]
+    _datasets = ["deepCoadd_directWarp", "deep_makeCoaddTempExp_config", "deep_makeCoaddTempExp_metadata"]
 
 class CoaddValidation(Validation):
     _datasets = ["deepCoadd", "deep_safeClipAssembleCoadd_config", "deep_safeClipAssembleCoadd_metadata"]
