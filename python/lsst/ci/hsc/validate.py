@@ -8,7 +8,7 @@ import argparse
 from lsst.base import setNumThreads
 from lsst.daf.persistence import Butler
 import lsst.log
-from lsst.meas.astrom import LoadAstrometryNetObjectsTask
+from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 
 
 class IdValueAction(argparse.Action):
@@ -136,8 +136,9 @@ class Validation(object):
     def validateMatches(self, dataId):
         sources = self.butler.get(self._sourceDataset, dataId)
         packedMatches = self.butler.get(self._matchDataset, dataId)
-        refObjLoaderConfig = LoadAstrometryNetObjectsTask.ConfigClass()
-        refObjLoader = LoadAstrometryNetObjectsTask(refObjLoaderConfig)
+        config = LoadIndexedReferenceObjectsTask.ConfigClass()
+        config.ref_dataset_name = "ps1_pv3_3pi_20170110"
+        refObjLoader = LoadIndexedReferenceObjectsTask(self.butler, config=config)
         matches = refObjLoader.joinMatchListWithCatalog(packedMatches, sources)
         self.assertGreater("Number of matches", len(matches), self._minMatches)
 
