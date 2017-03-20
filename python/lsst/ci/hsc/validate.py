@@ -59,6 +59,7 @@ class Validation(object):
     _sourceDataset = None # Dataset name of source catalog
     _minSources = 100 # Minimum number of sources
     _matchDataset = None # Dataset name of matches
+    _matchFullDataset = None  # Dataset name of denormalized matches
     _minMatches = 10 # Minimum number of matches
     _butler = {}
 
@@ -142,6 +143,10 @@ class Validation(object):
         matches = refObjLoader.joinMatchListWithCatalog(packedMatches, sources)
         self.assertGreater("Number of matches", len(matches), self._minMatches)
 
+    def validateMatchFull(self, dataId):
+        matches = self.butler.get(self._matchFullDataset, dataId)
+        self.assertGreater("Number of full matches", len(matches), self._minMatches)
+
     def run(self, dataId, **kwargs):
         if kwargs:
             dataId = dataId.copy()
@@ -163,6 +168,10 @@ class Validation(object):
             self.log.info("Validating matches output for %s" % dataId)
             self.validateMatches(dataId)
 
+        if self._matchFullDataset is not None:
+            self.log.info("Validating matchFull output for %s" % dataId)
+            self.validateMatchFull(dataId)
+
     def scons(self, *args, **kwargs):
         """Strip target,source,env from scons' call"""
         kwargs.pop("target")
@@ -182,6 +191,7 @@ class SfmValidation(Validation):
                  "icSrc", "icSrc_schema", "src_schema"]
     _sourceDataset = "src"
     _matchDataset = "srcMatch"
+    _matchFullDataset = "srcMatchFull"
 
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
@@ -219,6 +229,7 @@ class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
     _sourceDataset = "deepCoadd_meas"
     _matchDataset = "deepCoadd_srcMatch"
+    _matchFullDataset = "deepCoadd_srcMatchFull"
 
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
