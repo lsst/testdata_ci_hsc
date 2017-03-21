@@ -98,7 +98,7 @@ class Data(Struct):
 
     def sfm(self, env):
         """Process this data through single frame measurement"""
-        return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm],
+        return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm, refcat],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() +
                         " --doraise", validate(SfmValidation, DATADIR, self.dataId)])
 
@@ -169,6 +169,12 @@ ingestValidations = [command("ingestValidation-%(visit)d-%(ccd)d" % data.dataId,
 calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, calib,
                             validate(DetrendValidation, REPO, data.dataId)) for
                     data in sum(allData.itervalues(), [])]
+
+refcatName = "ps1_pv3_3pi_20170110"
+refcatPath = os.path.join(REPO, "ref_cats", refcatName)
+refcat = env.Command(refcatPath, mapper,
+                     ["rm -f " + refcatPath,  # Delete any existing, perhaps leftover from previous
+                      "ln -s %s %s" % (os.path.join(root, refcatName), refcatPath)])
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
