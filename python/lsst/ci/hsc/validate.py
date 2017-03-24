@@ -228,8 +228,8 @@ class MergeDetectionsValidation(Validation):
 class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
     _sourceDataset = "deepCoadd_meas"
-    _matchDataset = "deepCoadd_srcMatch"
-    _matchFullDataset = "deepCoadd_srcMatchFull"
+    _matchDataset = "deepCoadd_measMatch"
+    _matchFullDataset = "deepCoadd_measMatchFull"
 
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
