@@ -179,6 +179,7 @@ refcat = env.Command(refcatPath, mapper,
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
 preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " --doraise")
+env.Depends(preSfm, refcat)
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 # Create skymap
