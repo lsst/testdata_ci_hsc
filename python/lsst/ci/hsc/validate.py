@@ -238,7 +238,7 @@ class MeasureValidation(Validation):
         self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
                         "calib_psfUsed" in catalog.schema)
         self.checkApertureCorrections(catalog)
-        # Check that at least 95% of the stars we used to model the PSF end up classified as stars
+        # Check that at least 90% of the stars we used to model the PSF end up classified as stars
         # on the coadd.  We certainly need much more purity than that to build good PSF models, but
         # this should verify that flag propagation, aperture correction, and extendendess are all
         # running and configured reasonably (but it may not be sensitive enough to detect subtle
@@ -246,9 +246,9 @@ class MeasureValidation(Validation):
         psfStars = catalog.get("calib_psfUsed")
         extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
         self.assertGreater(
-            "Less than 95% of sources used to build the PSF are classified as stars on the coadd",
+            "Less than 90% of sources used to build the PSF are classified as stars on the coadd",
             numpy.logical_and(extStars, psfStars).sum(),
-            0.95*psfStars.sum()
+            0.90*psfStars.sum()
         )
 
 class MergeMeasurementsValidation(Validation):
