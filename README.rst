@@ -29,9 +29,10 @@ The package must be set up in the usual way before running::
 Reference catalog
 -----------------
 
-An appropriate astrometric reference catalog is provided in the
-``sdss-dr9-fink-v5b`` directory.  This is specified in `ups/ci_hsc.table`
-and is set up automatically when ``ci_hsc`` is ``setup`` above.
+An appropriate reference catalog for both astrometry and photometry is
+provided in the ``ps1_pv3_3pi_20170110`` directory. See the ``README.txt``
+file in that directory for details. It is automatically enabled by the default
+HSC processing configuration.
 
 Running the tests
 -----------------
