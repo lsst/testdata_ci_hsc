@@ -33,6 +33,35 @@ def validate(cls, root, dataId=None, **kwargs):
         cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.iteritems()))]
     return " ".join(cmd)
 
+
+profileNum = -1
+def getProfiling(script):
+    """Return python command-line argument string for profiling
+
+    If activated (via the "--enable-profile" command-line argument),
+    we write the profile to a filename starting with the provided
+    base name and including a sequence number and the script name,
+    so its contents can be quickly identified.
+
+    Note that this is python function-level profiling, which won't
+    descend into C++ elements of the codebase.
+
+    A basic profile can be printed using python:
+
+        >>> from pstats import Stats
+        >>> stats = Stats("profile-123-script.pstats")
+        >>> stats.sort_stats("cumulative").print_stats(30)
+    """
+    base = GetOption("enable_profile")
+    if not base:
+        return ""
+    global profileNum
+    profileNum += 1
+    if script.endswith(".py"):
+        script = script[:script.rfind(".")]
+    return "-m cProfile -o %s-%03d-%s.pstats" % (base, profileNum, script)
+
+
 def getExecutable(package, script):
     """
     Given the name of a package and a script or other executable which lies
@@ -44,8 +73,9 @@ def getExecutable(package, script):
     * Specifying a Python executable to be run (we assume the one on the default ${PATH} is appropriate);
     * Specifying the complete path to the script.
     """
-    return "{} python {}".format(libraryLoaderEnvironment(),
-                                 os.path.join(getPackageDir(package), "bin", script))
+    return "{} python {} {}".format(libraryLoaderEnvironment(),
+                                    getProfiling(script),
+                                    os.path.join(getPackageDir(package), "bin", script))
 
 Execute(Mkdir(".scons"))
 
@@ -54,6 +84,9 @@ AddOption("--raw", default=os.path.join(root, "raw"), help="Path to raw data")
 AddOption("--repo", default=os.path.join(root, "DATA"), help="Path for data repository")
 AddOption("--calib", default=os.path.join(root, "CALIB"), help="Path for calib repository")
 AddOption("--rerun", default="ci_hsc", help="Rerun name")
+AddOption("--enable-profile", nargs="?", const="profile", dest="enable_profile",
+          help=("Profile base filename; output will be <basename>-<sequence#>-<script>.pstats; "
+                "(Note: this option is for profiling the scripts, while --profile is for scons)"))
 
 RAW = GetOption("raw")
 REPO = GetOption("repo")
