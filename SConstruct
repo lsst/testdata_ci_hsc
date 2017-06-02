@@ -304,7 +304,9 @@ preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
 
 forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.itervalues(), [])]
 
-everything = [forcedPhotCcd, forcedPhotCoadd]
+versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
+
+everything = [versions]
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")
