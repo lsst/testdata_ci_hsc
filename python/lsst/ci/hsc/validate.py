@@ -222,6 +222,21 @@ class WarpValidation(Validation):
 class CoaddValidation(Validation):
     _datasets = ["deepCoadd", "deep_safeClipAssembleCoadd_config", "deep_safeClipAssembleCoadd_metadata"]
 
+    def run(self, dataId, **kwargs):
+        Validation.run(self, dataId, **kwargs)
+
+        if kwargs:
+            dataId = dataId.copy()
+            dataId.update(kwargs)
+
+        # Check that bright star masks have been applied
+        coadd = self.butler.get("deepCoadd", dataId)
+        mask = coadd.getMaskedImage().getMask()
+        maskVal = mask.getPlaneBitMask("BRIGHT_OBJECT")
+        numBright = (mask.getArray() & maskVal).sum()
+        self.assertGreater("Some pixels are masked as BRIGHT_OBJECT", numBright, 0)
+
+
 class DetectionValidation(Validation):
     _datasets = ["deepCoadd_det_schema", "detectCoaddSources_config", "detectCoaddSources_metadata"]
     _sourceDataset = "deepCoadd_det"
