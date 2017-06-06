@@ -84,6 +84,8 @@ AddOption("--raw", default=os.path.join(root, "raw"), help="Path to raw data")
 AddOption("--repo", default=os.path.join(root, "DATA"), help="Path for data repository")
 AddOption("--calib", default=os.path.join(root, "CALIB"), help="Path for calib repository")
 AddOption("--rerun", default="ci_hsc", help="Rerun name")
+AddOption("--no-versions", dest="no_versions", default=False, action="store_true",
+          help="Add --no-versions for LSST scripts")
 AddOption("--enable-profile", nargs="?", const="profile", dest="enable_profile",
           help=("Profile base filename; output will be <basename>-<sequence#>-<script>.pstats; "
                 "(Note: this option is for profiling the scripts, while --profile is for scons)"))
@@ -93,6 +95,7 @@ REPO = GetOption("repo")
 CALIB = GetOption("calib")
 PROC = GetOption("repo") + " --rerun " + GetOption("rerun")  # Common processing arguments
 DATADIR = os.path.join(GetOption("repo"), "rerun", GetOption("rerun"))
+STDARGS = "--doraise" + (" --no-versions" if GetOption("no_versions") else "")
 
 
 def command(target, source, cmd):
@@ -132,8 +135,8 @@ class Data(Struct):
     def sfm(self, env):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm, refcat],
-                       [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() +
-                        " --doraise", validate(SfmValidation, DATADIR, self.dataId)])
+                       [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() + " " +
+                        STDARGS, validate(SfmValidation, DATADIR, self.dataId)])
 
     def forced(self, env, tract):
         """Process this data through CCD-level forced photometry"""
@@ -141,7 +144,7 @@ class Data(Struct):
         dataId["tract"] = tract
         return command("forced-ccd-" + self.name, ingestValidations + calibValidations + [preForcedPhotCcd],
                        [getExecutable("meas_base", "forcedPhotCcd.py") + " " + PROC + " " +
-                       self.id(tract=tract) + " --doraise" + " -C forcedPhotCcdConfig.py",
+                       self.id(tract=tract) + " " + STDARGS + " -C forcedPhotCcdConfig.py",
                        validate(ForcedPhotCcdValidation, DATADIR, dataId)])
 
 
@@ -190,7 +193,7 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), ["bin"],
 
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
                      [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
-                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True --doraise"]
+                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True " + STDARGS]
                       )
 calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
@@ -211,13 +214,13 @@ refcat = env.Command(refcatPath, mapper,
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
-preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " --doraise")
+preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
 env.Depends(preSfm, refcat)
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
 
 # Create skymap
 skymap = command("skymap", mapper,
-                 [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py --doraise",
+                 [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py " + STDARGS,
                   validate(SkymapValidation, DATADIR)])
 
 patchDataId = dict(tract=0, patch="5,4")
@@ -227,12 +230,12 @@ patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 # Coadd construction
 # preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
 preWarp = command("warp", mapper,
-                  getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " --doraise"\
+                  getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " " + STDARGS +
                   " -c doApplyUberCal=False ")
 preCoadd = command("coadd", mapper,
-                   getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " --doraise")
+                   getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + STDARGS)
 preDetect = command("detect", mapper,
-                    getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " --doraise")
+                    getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + STDARGS)
 def processCoadds(filterName, dataList):
     """Generate coadds and run detection on them"""
     ident = "--id " + patchId + " filter=" + filterName
@@ -242,18 +245,18 @@ def processCoadds(filterName, dataList):
     warps = [command("warp-%d" % exp,
                      [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap, preWarp],
                      [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
-                      " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " --doraise"\
-                      " -c doApplyUberCal=False ",
+                      " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " " + STDARGS +
+                      " -c doApplyUberCal=False",
                       validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
     coadd = command("coadd-" + filterName, warps + [preCoadd],
                     [getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + ident + " " +
-                     " ".join(data.id("--selectId") for data in dataList) + " --doraise",
+                     " ".join(data.id("--selectId") for data in dataList) + " " + STDARGS,
                      validate(CoaddValidation, DATADIR, patchDataId, filter=filterName)
                      ])
     detect = command("detect-" + filterName, [coadd, preDetect],
                      [getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + ident +
-                      " --doraise", validate(DetectionValidation, DATADIR, patchDataId, filter=filterName)
+                      " " + STDARGS, validate(DetectionValidation, DATADIR, patchDataId, filter=filterName)
                       ])
     return detect
 
@@ -263,17 +266,17 @@ coadds = {ff: processCoadds(ff, allData[ff]) for ff in allData}
 filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
                           [getExecutable("pipe_tasks", "mergeCoaddDetections.py") + " " + PROC + " --id " +
-                           patchId + " filter=" + "^".join(filterList) + " --doraise",
+                           patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
                            validate(MergeDetectionsValidation, DATADIR, patchDataId)
                            ])
 
 # preMeasure step is a work-around for a race on schema/config/versions
 preMeasure = command("measure", mergeDetections,
-                     getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --doraise")
+                     getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " " + STDARGS)
 def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
                    [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --id " +
-                    patchId + " filter=" + filterName + " --doraise",
+                    patchId + " filter=" + filterName + " " + STDARGS,
                     validate(MeasureValidation, DATADIR, patchDataId, filter=filterName)
                     ])
 
@@ -281,17 +284,17 @@ measure = [measureCoadds(ff) for ff in filterList]
 
 mergeMeasurements = command("mergeMeasurements", measure,
                             [getExecutable("pipe_tasks", "mergeCoaddMeasurements.py") + " " + PROC +
-                             " --id " + patchId + " filter=" + "^".join(filterList) + " --doraise",
+                             " --id " + patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
                              validate(MergeMeasurementsValidation, DATADIR, patchDataId)
                              ])
 
 # preForcedPhotCoadd step is a work-around for a race on schema/config/versions
 preForcedPhotCoadd = command("forcedPhotCoadd", [mapper, mergeMeasurements],
-                             getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --doraise")
+                             getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " " + STDARGS)
 def forcedPhotCoadd(filterName):
     return command("forced-coadd-" + filterName, [mergeMeasurements, preForcedPhotCoadd],
                    [getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --id " + patchId +
-                    " filter=" + filterName + " --doraise",
+                    " filter=" + filterName + " " + STDARGS,
                     validate(ForcedPhotCoaddValidation, DATADIR, patchDataId, filter=filterName)
                     ])
 
@@ -300,11 +303,13 @@ forcedPhotCoadd = [forcedPhotCoadd(ff) for ff in filterList]
 # preForcedPhotCcd step is a work-around for a race on schema/config/versions
 preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
                            getExecutable("meas_base", "forcedPhotCcd.py") + " " + PROC +
-                           " -C forcedPhotCcdConfig.py" + " --doraise")
+                           " -C forcedPhotCcdConfig.py" + " " + STDARGS)
 
 forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.itervalues(), [])]
 
-everything = [forcedPhotCcd, forcedPhotCoadd]
+versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
+
+everything = [versions]
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")

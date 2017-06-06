@@ -1,6 +1,7 @@
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
            "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
-           "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",]
+           "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",
+           "VersionValidation"]
 
 import os
 import numpy
@@ -47,10 +48,14 @@ def main():
         root = os.path.join(root, "rerun", args.rerun)
 
     validator = globals()[args.cls](root)
-    for dataId in args.id:
-        dataId = {key: int(value) if key in ("visit", "ccd", "tract") else value for
-                  key, value in dataId.iteritems()}
-        validator.run(dataId)
+    if args.id:
+        for dataId in args.id:
+            dataId = {key: int(value) if key in ("visit", "ccd", "tract") else value for
+                      key, value in dataId.iteritems()}
+            validator.run(dataId)
+    else:
+        # Run once with empty dataId
+        validator.run({})
 
 
 class Validation(object):
@@ -267,3 +272,20 @@ class ForcedPhotCcdValidation(Validation):
     _datasets = ["forcedPhotCcd_config", "forcedPhotCcd_metadata",
                  "forced_src", "forced_src_schema"]
     _sourceDataset = "forced_src"
+
+class VersionValidation(Validation):
+    _datasets = ["packages"]
+
+    def run(self, dataId, **kwargs):
+        Validation.run(self, dataId, **kwargs)
+
+        packages = self.butler.get("packages")  # No dataId needed
+        thirdparty = ['cfitsio', 'esutil', 'fftw', 'future', 'galsim', 'gsl', 'matplotlib',
+                      'numpy', 'pyfits', 'python', 'scipy', 'wcslib']
+        ours = ['afw', 'base', 'coadd_utils', 'daf_base', 'daf_persistence', 'geom', 'ip_diffim', 'ip_isr',
+                'meas_algorithms', 'meas_astrom', 'meas_base', 'meas_deblender', 'meas_extensions_convolved',
+                'meas_extensions_photometryKron', 'meas_extensions_psfex', 'meas_extensions_shapeHSM',
+                'meas_modelfit', 'obs_subaru', 'pex_config', 'pex_exceptions', 'pipe_base', 'pipe_tasks',
+                'shapelet', 'skymap', 'utils']
+        for pkg in thirdparty + ours:
+            self.assertTrue(pkg + " in packages", pkg in packages)
