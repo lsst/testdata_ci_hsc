@@ -212,6 +212,13 @@ refcat = env.Command(refcatPath, mapper,
                      ["rm -f " + refcatPath,  # Delete any existing, perhaps leftover from previous
                       "ln -s %s %s" % (os.path.join(root, refcatName), refcatPath)])
 
+brightObjSource = os.path.join(root, "brightObjectMasks")
+brightObjTarget = os.path.join(REPO, "deepCoadd", "BrightObjectMasks")
+brightObj = env.Command(brightObjTarget, mapper,
+                        ["rm -f " + brightObjTarget,  # Delete any existing
+                         "mkdir -p " + os.path.dirname(brightObjTarget),
+                         "ln -s %s %s" % (brightObjSource, brightObjTarget)])
+
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
 preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
@@ -232,7 +239,7 @@ patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
 preWarp = command("warp", mapper,
                   getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " " + STDARGS +
                   " -c doApplyUberCal=False ")
-preCoadd = command("coadd", mapper,
+preCoadd = command("coadd", [mapper, brightObj],
                    getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + STDARGS)
 preDetect = command("detect", mapper,
                     getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + STDARGS)
