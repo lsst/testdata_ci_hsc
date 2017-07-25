@@ -219,20 +219,22 @@ brightObj = env.Command(brightObjTarget, mapper,
                          "mkdir -p " + os.path.dirname(brightObjTarget),
                          "ln -s %s %s" % (brightObjSource, brightObjTarget)])
 
-# Single frame measurement
-# preSfm step is a work-around for a race on schema/config/versions
-preSfm = command("sfm", mapper, getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
-env.Depends(preSfm, refcat)
-sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
-
 # Create skymap
+# This needs to be done early and in serial, so that the package versions produced by it aren't clobbered
+# by other commands in-flight.
 skymap = command("skymap", mapper,
                  [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py " + STDARGS,
                   validate(SkymapValidation, DATADIR)])
 
+# Single frame measurement
+# preSfm step is a work-around for a race on schema/config/versions
+preSfm = command("sfm", skymap,
+                 getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
+env.Depends(preSfm, refcat)
+sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
+
 patchDataId = dict(tract=0, patch="5,4")
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
-
 
 # Coadd construction
 # preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
