@@ -30,7 +30,7 @@ def validate(cls, root, dataId=None, **kwargs):
         assert len(kwargs) == 0  # There's no dataId to update
     cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root,]
     if dataId:
-        cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.iteritems()))]
+        cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.items()))]
     return " ".join(cmd)
 
 
@@ -201,10 +201,10 @@ calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
                      )
 ingestValidations = [command("ingestValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
                              validate(RawValidation, REPO, data.dataId)) for
-                     data in sum(allData.itervalues(), [])]
+                     data in sum(allData.values(), [])]
 calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, calib,
                             validate(DetrendValidation, REPO, data.dataId)) for
-                    data in sum(allData.itervalues(), [])]
+                    data in sum(allData.values(), [])]
 
 refcatName = "ps1_pv3_3pi_20170110"
 refcatPath = os.path.join(REPO, "ref_cats", refcatName)
@@ -231,10 +231,10 @@ skymap = command("skymap", mapper,
 preSfm = command("sfm", skymap,
                  getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
 env.Depends(preSfm, refcat)
-sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.itervalues(), [])}
+sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.values(), [])}
 
 patchDataId = dict(tract=0, patch="5,4")
-patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.iteritems()))
+patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.items()))
 
 # Coadd construction
 # preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
@@ -273,7 +273,7 @@ coadds = {ff: processCoadds(ff, allData[ff]) for ff in allData}
 
 # Multiband processing
 filterList = coadds.keys()
-mergeDetections = command("mergeDetections", sum(coadds.itervalues(), []),
+mergeDetections = command("mergeDetections", sum(coadds.values(), []),
                           [getExecutable("pipe_tasks", "mergeCoaddDetections.py") + " " + PROC + " --id " +
                            patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
                            validate(MergeDetectionsValidation, DATADIR, patchDataId)
@@ -314,7 +314,7 @@ preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
                            getExecutable("meas_base", "forcedPhotCcd.py") + " " + PROC +
                            " -C forcedPhotCcdConfig.py" + " " + STDARGS)
 
-forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.itervalues(), [])]
+forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.values(), [])]
 
 versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
 

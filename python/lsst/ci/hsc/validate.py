@@ -51,7 +51,7 @@ def main():
     if args.id:
         for dataId in args.id:
             dataId = {key: int(value) if key in ("visit", "ccd", "tract") else value for
-                      key, value in dataId.iteritems()}
+                      key, value in dataId.items()}
             validator.run(dataId)
     else:
         # Run once with empty dataId
