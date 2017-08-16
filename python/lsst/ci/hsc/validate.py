@@ -266,7 +266,7 @@ class MeasureValidation(Validation):
         psfStars = catalog.get("calib_psfUsed")
         extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
         self.assertGreater(
-            "Less than 90% of sources used to build the PSF are classified as stars on the coadd",
+            "More than 90% of sources used to build the PSF are classified as stars on the coadd",
             numpy.logical_and(extStars, psfStars).sum(),
             0.90*psfStars.sum()
         )
