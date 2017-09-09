@@ -238,12 +238,12 @@ patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.items()))
 
 # Coadd construction
 # preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
-preWarp = command("warp", mapper,
+preWarp = command("warp", skymap,
                   getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " " + STDARGS +
                   " -c doApplyUberCal=False ")
-preCoadd = command("coadd", [mapper, brightObj],
+preCoadd = command("coadd", [skymap, brightObj],
                    getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + STDARGS)
-preDetect = command("detect", mapper,
+preDetect = command("detect", skymap,
                     getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + STDARGS)
 def processCoadds(filterName, dataList):
     """Generate coadds and run detection on them"""
