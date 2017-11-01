@@ -94,16 +94,16 @@ class Validation(object):
         self.assertTrue(description + " (%s = %s)" % (obj1, obj2), obj1 == obj2)
 
     def assertGreater(self, description, num1, num2):
-        self.assertTrue(description + " (%d > %d)" % (num1, num2), num1 > num2)
+        self.assertTrue(description + " (%s > %s)" % (num1, num2), num1 > num2)
 
     def assertLess(self, description, num1, num2):
-        self.assertTrue(description + " (%d < %d)" % (num1, num2), num1 < num2)
+        self.assertTrue(description + " (%s < %s)" % (num1, num2), num1 < num2)
 
     def assertGreaterEqual(self, description, num1, num2):
-        self.assertTrue(description + " (%d >= %d)" % (num1, num2), num1 >= num2)
+        self.assertTrue(description + " (%s >= %s)" % (num1, num2), num1 >= num2)
 
     def assertLessEqual(self, description, num1, num2):
-        self.assertTrue(description + " (%d <= %d)" % (num1, num2), num1 <= num2)
+        self.assertTrue(description + " (%s <= %s)" % (num1, num2), num1 <= num2)
 
 
     def checkApertureCorrections(self, catalog):
