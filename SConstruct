@@ -191,18 +191,18 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), ["bin"],
                       "echo lsst.obs.hsc.HscMapper > " + os.path.join(REPO, "_mapper"),
                       ])
 
-ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), mapper,
-                     [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
-                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True " + STDARGS]
-                      )
-calib = env.Command(os.path.join(REPO, "CALIB"), ingest,
+calib = env.Command(os.path.join(REPO, "CALIB"), mapper,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
                      "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")]
                      )
+ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), calib,
+                     [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
+                     "/*.fits --mode=link " + "-c clobber=True register.ignore=True " + STDARGS]
+                      )
 ingestValidations = [command("ingestValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
                              validate(RawValidation, REPO, data.dataId)) for
                      data in sum(allData.values(), [])]
-calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, calib,
+calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
                             validate(DetrendValidation, REPO, data.dataId)) for
                     data in sum(allData.values(), [])]
 
