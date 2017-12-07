@@ -238,15 +238,16 @@ class CoaddValidation(Validation):
 
 
 class DetectionValidation(Validation):
-    _datasets = ["deepCoadd_det_schema", "detectCoaddSources_config", "detectCoaddSources_metadata"]
+    _datasets = ["deepCoadd_det_schema", "detectCoaddSources_config", "detectCoaddSources_metadata",
+                 "deepCoadd_calexp", ]
     _sourceDataset = "deepCoadd_det"
 
     def run(self, dataId, **kwargs):
         Validation.run(self, dataId, **kwargs)
 
-        md = self.butler.get("detectCoaddSources_metadata", dataId)
-        varScale = md.get("detectCoaddSources.variance_scale")
-        self.assertGreater("detectCoaddSources.variance_scale is positive", varScale, 0.0)
+        md = self.butler.get("deepCoadd_calexp_md", dataId)
+        varScale = md.get("variance_scale")
+        self.assertGreater("variance_scale is positive", varScale, 0.0)
 
 
 class MergeDetectionsValidation(Validation):
