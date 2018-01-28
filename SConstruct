@@ -219,6 +219,11 @@ brightObj = env.Command(brightObjTarget, mapper,
                          "mkdir -p " + os.path.dirname(brightObjTarget),
                          "ln -s %s %s" % (brightObjSource, brightObjTarget)])
 
+# Add transmission curves to the repository.
+transmissionCurvesTarget = os.path.join(REPO, "transmission")
+transmissionCurves = env.Command(transmissionCurvesTarget, calib,
+                                 ["installTransmissionCurves.py " + REPO])
+
 # Create skymap
 # This needs to be done early and in serial, so that the package versions produced by it aren't clobbered
 # by other commands in-flight.
@@ -228,7 +233,7 @@ skymap = command("skymap", mapper,
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
-preSfm = command("sfm", skymap,
+preSfm = command("sfm", [skymap, transmissionCurvesTarget],
                  getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
 env.Depends(preSfm, refcat)
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.values(), [])}
