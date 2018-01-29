@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
-__all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
-           "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
-           "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",
-           "VersionValidation"]
+__all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkyCorrValidation", "SkymapValidation",
+           "WarpValidation", "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation",
+           "MeasureValidation", "MergeMeasurementsValidation", "ForcedPhotCoaddValidation",
+           "ForcedPhotCcdValidation", "VersionValidation"]
 
 import os
 import numpy
@@ -216,6 +216,10 @@ class SfmValidation(Validation):
             numpy.logical_and(extStars, psfStars).sum(),
             0.95*psfStars.sum()
         )
+
+
+class SkyCorrValidation(Validation):
+    _datasets = ["skyCorr", "skyCorr_config"]
 
 
 class SkymapValidation(Validation):
