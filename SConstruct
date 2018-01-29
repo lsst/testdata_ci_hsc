@@ -26,8 +26,8 @@ def validate(cls, root, dataId=None, **kwargs):
     if dataId:
         dataId = dataId.copy()
         dataId.update(kwargs)
-    else:
-        assert len(kwargs) == 0  # There's no dataId to update
+    elif kwargs:
+        dataId = kwargs
     cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root,]
     if dataId:
         cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.items()))]
