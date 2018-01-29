@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
            "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
            "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",
@@ -188,8 +190,10 @@ class Validation(object):
 class RawValidation(Validation):
     _datasets = ["raw"]
 
+
 class DetrendValidation(Validation):
     _datasets = ["bias", "dark", "flat"]
+
 
 class SfmValidation(Validation):
     _datasets = ["processCcd_config", "processCcd_metadata", "calexp", "calexpBackground",
@@ -213,11 +217,14 @@ class SfmValidation(Validation):
             0.95*psfStars.sum()
         )
 
+
 class SkymapValidation(Validation):
     _datasets = ["deepCoadd_skyMap"]
 
+
 class WarpValidation(Validation):
     _datasets = ["deepCoadd_directWarp", "deep_makeCoaddTempExp_config", "deep_makeCoaddTempExp_metadata"]
+
 
 class CoaddValidation(Validation):
     _datasets = ["deepCoadd", "deep_safeClipAssembleCoadd_config", "deep_safeClipAssembleCoadd_metadata"]
@@ -254,6 +261,7 @@ class MergeDetectionsValidation(Validation):
     _datasets = ["mergeCoaddDetections_config", "deepCoadd_mergeDet_schema"]
     _sourceDataset = "deepCoadd_mergeDet"
 
+
 class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
     _sourceDataset = "deepCoadd_meas"
@@ -280,9 +288,11 @@ class MeasureValidation(Validation):
             0.90*psfStars.sum()
         )
 
+
 class MergeMeasurementsValidation(Validation):
     _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
     _sourceDataset = "deepCoadd_ref"
+
 
 class ForcedPhotCoaddValidation(Validation):
     _datasets = ["deepCoadd_forced_src_schema", "deepCoadd_forced_config", "deepCoadd_forced_metadata"]
@@ -292,10 +302,12 @@ class ForcedPhotCoaddValidation(Validation):
         catalog = Validation.validateSources(self, dataId)
         self.checkApertureCorrections(catalog)
 
+
 class ForcedPhotCcdValidation(Validation):
     _datasets = ["forcedPhotCcd_config", "forcedPhotCcd_metadata",
                  "forced_src", "forced_src_schema"]
     _sourceDataset = "forced_src"
+
 
 class VersionValidation(Validation):
     _datasets = ["packages"]
