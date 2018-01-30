@@ -222,7 +222,7 @@ brightObj = env.Command(brightObjTarget, mapper,
 # Add transmission curves to the repository.
 transmissionCurvesTarget = os.path.join(REPO, "transmission")
 transmissionCurves = env.Command(transmissionCurvesTarget, calib,
-                                 ["installTransmissionCurves.py " + REPO])
+                                 [getExecutable("obs_subaru", "installTransmissionCurves.py") + " " + REPO])
 
 # Create skymap
 # This needs to be done early and in serial, so that the package versions produced by it aren't clobbered
