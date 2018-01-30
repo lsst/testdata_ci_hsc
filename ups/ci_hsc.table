@@ -13,5 +13,6 @@ setupRequired(pipe_tasks)
 setupRequired(scons)
 setupRequired(sconsUtils)
 setupRequired(utils)
+setupRequired(pipe_drivers)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
