@@ -26,8 +26,8 @@ def validate(cls, root, dataId=None, **kwargs):
     if dataId:
         dataId = dataId.copy()
         dataId.update(kwargs)
-    else:
-        assert len(kwargs) == 0  # There's no dataId to update
+    elif kwargs:
+        dataId = kwargs
     cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root,]
     if dataId:
         cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.items()))]
@@ -222,7 +222,7 @@ brightObj = env.Command(brightObjTarget, mapper,
 # Add transmission curves to the repository.
 transmissionCurvesTarget = os.path.join(REPO, "transmission")
 transmissionCurves = env.Command(transmissionCurvesTarget, calib,
-                                 ["installTransmissionCurves.py " + REPO])
+                                 [getExecutable("obs_subaru", "installTransmissionCurves.py") + " " + REPO])
 
 # Create skymap
 # This needs to be done early and in serial, so that the package versions produced by it aren't clobbered
@@ -237,6 +237,28 @@ preSfm = command("sfm", [skymap, transmissionCurvesTarget],
                  getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS)
 env.Depends(preSfm, refcat)
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.values(), [])}
+
+# Sky correction
+def processSkyCorr(dataList):
+    """Generate sky corrections"""
+    visitDataLists = defaultdict(list)
+    for filterName in allData:
+        for data in allData[filterName]:
+            visitDataLists[data.visit].append(data)
+    preSkyCorr = command("skyCorr", skymap,
+                         getExecutable("pipe_drivers", "skyCorrection.py") + " " + PROC + " " + STDARGS +
+                         " --batch-type=smp --cores=1")
+    nameList = ("skyCorr-%d" % (vv,) for vv in visitDataLists)
+    depList = ([sfm[(data.visit, data.ccd)] for data in visitDataLists[vv]] for vv in visitDataLists)
+    cmdList = (getExecutable("pipe_drivers", "skyCorrection.py") + " " + PROC + " " + STDARGS +
+               " --batch-type=none --id visit=%d --job=skyCorr-%d" % (vv, vv) for vv in visitDataLists)
+    validateList = ([validate(SkyCorrValidation, DATADIR, data.dataId) for data in visitDataLists[vv]] for
+                    vv in visitDataLists)
+    return {vv: command(target=name, source=[preSkyCorr] + dep, cmd=[cmd] + val)
+            for vv, name, dep, cmd, val in zip(visitDataLists, nameList, depList, cmdList, validateList)}
+
+
+skyCorr = processSkyCorr(allData)
 
 patchDataId = dict(tract=0, patch="5,4")
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.items()))
@@ -257,7 +279,7 @@ def processCoadds(filterName, dataList):
     for data in dataList:
         exposures[data.visit].append(data)
     warps = [command("warp-%d" % exp,
-                     [sfm[(data.visit, data.ccd)] for data in exposures[exp]] + [skymap, preWarp],
+                     [skymap, preWarp] + [skyCorr[exp]],
                      [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " " + STDARGS +
                       " -c doApplyUberCal=False",
