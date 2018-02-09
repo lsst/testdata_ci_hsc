@@ -231,7 +231,8 @@ class WarpValidation(Validation):
 
 
 class CoaddValidation(Validation):
-    _datasets = ["deepCoadd", "deep_safeClipAssembleCoadd_config", "deep_safeClipAssembleCoadd_metadata"]
+    _datasets = ["deepCoadd", "deep_compareWarpAssembleCoadd_config",
+                 "deep_compareWarpAssembleCoadd_metadata"]
 
     def run(self, dataId, **kwargs):
         Validation.run(self, dataId, **kwargs)
