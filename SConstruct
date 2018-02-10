@@ -269,7 +269,8 @@ preWarp = command("warp", skymap,
                   getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " " + STDARGS +
                   " -c doApplyUberCal=False ")
 preCoadd = command("coadd", [skymap, brightObj],
-                   getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + STDARGS)
+                   getExecutable("pipe_tasks", "assembleCoadd.py") + " --warpCompareCoadd  " +
+                   PROC + " " + STDARGS)
 preDetect = command("detect", skymap,
                     getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + STDARGS)
 def processCoadds(filterName, dataList):
@@ -286,7 +287,7 @@ def processCoadds(filterName, dataList):
                       validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
              exp in exposures]
     coadd = command("coadd-" + filterName, warps + [preCoadd],
-                    [getExecutable("pipe_tasks", "assembleCoadd.py") + " " + PROC + " " + ident + " " +
+                    [getExecutable("pipe_tasks", "assembleCoadd.py") + " --warpCompareCoadd " + PROC + " " + ident + " " +
                      " ".join(data.id("--selectId") for data in dataList) + " " + STDARGS,
                      validate(CoaddValidation, DATADIR, patchDataId, filter=filterName)
                      ])
