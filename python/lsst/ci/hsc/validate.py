@@ -248,6 +248,10 @@ class CoaddValidation(Validation):
         numBright = (mask.getArray() & maskVal).sum()
         self.assertGreater("Some pixels are masked as BRIGHT_OBJECT", numBright, 0)
 
+        # Check that TransmissionCurve is not None
+        self.assertFalse("TransmissionCurves are attached to coadds",
+                         coadd.getInfo().getTransmissionCurve() is None)
+
 
 class DetectionValidation(Validation):
     _datasets = ["deepCoadd_det_schema", "detectCoaddSources_config", "detectCoaddSources_metadata",
