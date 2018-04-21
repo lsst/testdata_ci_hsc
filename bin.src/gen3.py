@@ -27,7 +27,10 @@ from lsst.ci.hsc import gen3
 
 def main():
     registry = gen3.getRegistry()
-    gen3.registerInstrument(registry)
+    if not registry.findDataUnitEntry("Camera", {"camera": "HSC"}):
+        gen3.registerInstrument(registry)
+    walker = gen3.walk()
+    gen3.write(walker, registry)
 
 if __name__ == "__main__":
     main()

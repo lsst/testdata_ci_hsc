@@ -23,6 +23,7 @@ import os
 
 from lsst.utils import getPackageDir
 from lsst.daf.butler.core import Registry, Config
+from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
 from lsst.obs.subaru.gen3 import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
 
@@ -42,3 +43,23 @@ def registerInstrument(registry):
     mapper = HscMapper(root=REPO_ROOT)
     instrument = HyperSuprimeCam(mapper)
     instrument.register(registry)
+
+
+def walk():
+    config = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
+    walker = ConversionWalker(config)
+    walker.tryRoot(REPO_ROOT)
+    while walker.found.keys() != walker.scanned.keys():
+        repos = walker.found.copy()
+        while repos:
+            walker.scanRepo(repos.popitem()[1])
+    walker.readVisitInfo()
+    return walker
+
+
+def write(walker, registry):
+    config = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
+    config["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
+    writer = ConversionWriter(config, gen2repos=walker.scanned, skyMaps=walker.skyMaps,
+                              visitInfo=walker.visitInfo)
+    writer.run(registry, None)
