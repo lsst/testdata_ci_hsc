@@ -23,7 +23,7 @@ import os
 
 from lsst.log import Log
 from lsst.utils import getPackageDir
-from lsst.daf.butler.core import Registry, Config
+from lsst.daf.butler.core import Registry, Config, StorageClassFactory
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
 from lsst.obs.subaru.gen3 import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
@@ -41,6 +41,9 @@ def getRegistry():
     config["registry.db"] = "sqlite:///{}/gen3.sqlite3".format(REPO_ROOT)
     config["registry.schema"] = os.path.join(getPackageDir("daf_butler"),
                                              "config/registry/default_schema.yaml")
+    config["storageClasses.config"] = os.path.join(getPackageDir("daf_butler"),
+                                                   "config/registry/storageClasses.yaml")
+    StorageClassFactory.fromConfig(config)
     return Registry.fromConfig(config)
 
 
