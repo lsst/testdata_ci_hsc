@@ -21,6 +21,7 @@
 
 import os
 
+from lsst.log import Log
 from lsst.utils import getPackageDir
 from lsst.daf.butler.core import Registry, Config
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
@@ -28,6 +29,10 @@ from lsst.obs.subaru.gen3 import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
+
+
+log = Log.getLogger("lsst.daf.butler.gen2convert")
+log.setLevel(Log.DEBUG)
 
 
 def getRegistry():
