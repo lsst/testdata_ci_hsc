@@ -55,6 +55,7 @@ def registerInstrument(registry):
 
 def walk():
     config = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
+    config["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
     walker = ConversionWalker(config)
     walker.tryRoot(REPO_ROOT)
     while walker.found.keys() != walker.scanned.keys():
@@ -66,8 +67,5 @@ def walk():
 
 
 def write(walker, registry):
-    config = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
-    config["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
-    writer = ConversionWriter(config, gen2repos=walker.scanned, skyMaps=walker.skyMaps,
-                              visitInfo=walker.visitInfo)
+    writer = ConversionWriter.fromWalker(walker)
     writer.run(registry, None)
