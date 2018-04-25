@@ -21,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
 
+from lsst.log import Log
 from lsst.ci.hsc import gen3
 
 
@@ -35,4 +37,11 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Convert ci_hsc data repos to Butler Gen 3.")
+    parser.add_argument("-v", "--verbose", action="store_const", dest="logLevel",
+                        default=Log.INFO, const=Log.DEBUG,
+                        help="Set the log level to DEBUG.")
+    args = parser.parse_args()
+    log = Log.getLogger("lsst.daf.butler.gen2convert")
+    log.setLevel(args.logLevel)
     main()
