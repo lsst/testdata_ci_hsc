@@ -21,30 +21,45 @@
 
 import os
 
-from lsst.log import Log
 from lsst.utils import getPackageDir
-from lsst.daf.butler.core import Registry, Config, StorageClassFactory
+from lsst.daf.butler.core import Registry, Datastore, Config, StorageClassFactory
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
 from lsst.obs.subaru.gen3 import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
 
+butlerConfig = Config()
+butlerConfig["registry.cls"] = "lsst.daf.butler.registries.sqliteRegistry.SqliteRegistry"
+butlerConfig["registry.db"] = "sqlite:///{}/gen3.sqlite3".format(REPO_ROOT)
+butlerConfig["registry.schema"] = os.path.join(getPackageDir("daf_butler"),
+                                               "config/registry/default_schema.yaml")
+butlerConfig["storageClasses.config"] = os.path.join(getPackageDir("daf_butler"),
+                                                     "config/registry/storageClasses.yaml")
+butlerConfig["datastore.cls"] = "lsst.daf.butler.datastores.posixDatastore.PosixDatastore"
+butlerConfig["datastore.root"] = REPO_ROOT
+butlerConfig["datastore.create"] = True
+butlerConfig["datastore.formatters"] = {
+    "SourceCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "ImageF": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "MaskX": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "Exposure": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+    "ExposureF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+    "ExposureI": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+}
 
-log = Log.getLogger("lsst.daf.butler.gen2convert")
-log.setLevel(Log.DEBUG)
+StorageClassFactory.fromConfig(butlerConfig)
+
+converterConfig = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
+converterConfig["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
 
 
 def getRegistry():
-    config = Config()
-    config["registry.cls"] = "lsst.daf.butler.registries.sqliteRegistry.SqliteRegistry"
-    config["registry.db"] = "sqlite:///{}/gen3.sqlite3".format(REPO_ROOT)
-    config["registry.schema"] = os.path.join(getPackageDir("daf_butler"),
-                                             "config/registry/default_schema.yaml")
-    config["storageClasses.config"] = os.path.join(getPackageDir("daf_butler"),
-                                                   "config/registry/storageClasses.yaml")
-    StorageClassFactory.fromConfig(config)
-    return Registry.fromConfig(config)
+    return Registry.fromConfig(butlerConfig)
+
+
+def getDatastore(registry):
+    return Datastore.fromConfig(config=butlerConfig, registry=registry)
 
 
 def registerInstrument(registry):
@@ -54,18 +69,12 @@ def registerInstrument(registry):
 
 
 def walk():
-    config = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
-    config["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
-    walker = ConversionWalker(config)
+    walker = ConversionWalker(converterConfig)
     walker.tryRoot(REPO_ROOT)
-    while walker.found.keys() != walker.scanned.keys():
-        repos = walker.found.copy()
-        while repos:
-            walker.scanRepo(repos.popitem()[1])
-    walker.readVisitInfo()
+    walker.scanAll()
     return walker
 
 
-def write(walker, registry):
+def write(walker, registry, datastore):
     writer = ConversionWriter.fromWalker(walker)
-    writer.run(registry, None)
+    writer.run(registry, datastore)
