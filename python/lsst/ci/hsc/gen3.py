@@ -39,6 +39,7 @@ butlerConfig["storageClasses.config"] = os.path.join(getPackageDir("daf_butler")
 butlerConfig["datastore.cls"] = "lsst.daf.butler.datastores.posixDatastore.PosixDatastore"
 butlerConfig["datastore.root"] = REPO_ROOT
 butlerConfig["datastore.create"] = True
+butlerConfig["datastore.records.table"] = "PosixDatastoreRecords"
 butlerConfig["datastore.formatters"] = {
     "SourceCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
     "ImageF": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
