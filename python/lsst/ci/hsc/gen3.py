@@ -47,6 +47,7 @@ butlerConfig["datastore.formatters"] = {
     "Exposure": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "ExposureF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "ExposureI": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+    "SkyMap": "lsst.daf.butler.formatters.pickleFormatter.PickleFormatter",
 }
 
 StorageClassFactory.fromConfig(butlerConfig)
