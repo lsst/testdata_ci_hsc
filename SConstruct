@@ -353,9 +353,12 @@ preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
 
 forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.values(), [])]
 
+gen3repo = command("gen3", [forcedPhotCcd, forcedPhotCoadd],
+                   [getExecutable("ci_hsc", "gen3.py")])
+
 versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
 
-everything = [versions]
+everything = [versions, gen3repo]
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")
