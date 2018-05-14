@@ -383,9 +383,11 @@ env.Alias("gen3repo", gen3repo)
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
 env.Alias("gen3repo-validate", gen3repoValidate)
 
-versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
+everything = [gen3repoValidate]
 
-everything = [versions, gen3repoValidate]
+if not GetOption("no_versions"):
+    versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
+    everything.append(versions)
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")
