@@ -22,7 +22,7 @@
 import os
 
 from lsst.utils import getPackageDir
-from lsst.daf.butler.core import Registry, Datastore, Config, StorageClassFactory
+from lsst.daf.butler import Butler, Registry, Datastore, Config, StorageClassFactory
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
 from lsst.obs.subaru.gen3 import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
@@ -71,6 +71,10 @@ def getRegistry():
 
 def getDatastore(registry):
     return Datastore.fromConfig(config=butlerConfig, registry=registry)
+
+
+def getButler(collection):
+    return Butler(config=butlerConfig, collection=collection)
 
 
 def registerInstrument(registry):
