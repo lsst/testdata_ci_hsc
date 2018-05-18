@@ -14,12 +14,15 @@ SConscript(os.path.join(".", "bin.src", "SConscript"))  # build bin scripts
 env = Environment(ENV=os.environ)
 env["ENV"]["OMP_NUM_THREADS"] = "1"  # Disable threading; we're parallelising at a higher level
 
-def validate(cls, root, dataId=None, **kwargs):
+gen3validateCmds = {}
+
+def validate(cls, root, dataId=None, gen3id=None, **kwargs):
     """!Construct a command-line for validation
 
     @param cls  Validation class to use
     @param root  Data repo root directory
-    @param dataId  Data identifier dict, or None
+    @param dataId  Data identifier dict (Gen2), or None
+    @param gen3Id  Gen3 data identifier dict, or None
     @param kwargs  Additional key/value pairs to add to dataId
     @return Command-line string to run validation
     """
@@ -29,8 +32,12 @@ def validate(cls, root, dataId=None, **kwargs):
     elif kwargs:
         dataId = kwargs
     cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root,]
+    gen3 = cmd + ["--gen3", "--collection", "shared/ci_hsc"]
     if dataId:
         cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.items()))]
+    if gen3id:
+        gen3 += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in gen3id.items()))]
+        gen3validateCmds.setdefault(cls.__name__, []).append(" ".join(gen3))
     return " ".join(cmd)
 
 
@@ -125,6 +132,13 @@ class Data(Struct):
         """Returns the dataId for this data"""
         return dict(visit=self.visit, ccd=self.ccd)
 
+    def gen3id(self, raw=False):
+        """Returns the Gen3 data ID for this data"""
+        if raw:
+            return dict(camera="HSC", exposure=self.visit, sensor=self.ccd)
+        else:
+            return dict(camera="HSC", visit=self.visit, sensor=self.ccd)
+
     def id(self, prefix="--id", tract=None):
         """Returns a suitable --id command-line string"""
         r = "%s visit=%d ccd=%d" % (prefix, self.visit, self.ccd)
@@ -136,7 +150,7 @@ class Data(Struct):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm, refcat],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() + " " +
-                        STDARGS, validate(SfmValidation, DATADIR, self.dataId)])
+                        STDARGS, validate(SfmValidation, DATADIR, self.dataId, gen3id=self.gen3id())])
 
     def forced(self, env, tract):
         """Process this data through CCD-level forced photometry"""
@@ -145,7 +159,8 @@ class Data(Struct):
         return command("forced-ccd-" + self.name, ingestValidations + calibValidations + [preForcedPhotCcd],
                        [getExecutable("meas_base", "forcedPhotCcd.py") + " " + PROC + " " +
                        self.id(tract=tract) + " " + STDARGS + " -C forcedPhotCcdConfig.py",
-                       validate(ForcedPhotCcdValidation, DATADIR, dataId)])
+                       validate(ForcedPhotCcdValidation, DATADIR, dataId,
+                                gen3id=dict(tract=0, skymap="ci_hsc", **self.gen3id()))])
 
 
 allData = {"HSC-R": [Data(903334, 16),
@@ -200,7 +215,7 @@ ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), calib,
                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True " + STDARGS]
                       )
 ingestValidations = [command("ingestValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
-                             validate(RawValidation, REPO, data.dataId)) for
+                             validate(RawValidation, REPO, data.dataId, gen3id=data.gen3id(True))) for
                      data in sum(allData.values(), [])]
 calibValidations = [command("calibValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
                             validate(DetrendValidation, REPO, data.dataId)) for
@@ -229,7 +244,7 @@ transmissionCurves = env.Command(transmissionCurvesTarget, calib,
 # by other commands in-flight.
 skymap = command("skymap", mapper,
                  [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py " + STDARGS,
-                  validate(SkymapValidation, DATADIR)])
+                  validate(SkymapValidation, DATADIR, gen3id=dict(skymap="ci_hsc"))])
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
@@ -252,8 +267,8 @@ def processSkyCorr(dataList):
     depList = ([sfm[(data.visit, data.ccd)] for data in visitDataLists[vv]] for vv in visitDataLists)
     cmdList = (getExecutable("pipe_drivers", "skyCorrection.py") + " " + PROC + " " + STDARGS +
                " --batch-type=none --id visit=%d --job=skyCorr-%d" % (vv, vv) for vv in visitDataLists)
-    validateList = ([validate(SkyCorrValidation, DATADIR, data.dataId) for data in visitDataLists[vv]] for
-                    vv in visitDataLists)
+    validateList = ([validate(SkyCorrValidation, DATADIR, data.dataId, gen3id=data.gen3id())
+                    for data in visitDataLists[vv]] for vv in visitDataLists)
     return {vv: command(target=name, source=[preSkyCorr] + dep, cmd=[cmd] + val)
             for vv, name, dep, cmd, val in zip(visitDataLists, nameList, depList, cmdList, validateList)}
 
@@ -261,6 +276,7 @@ def processSkyCorr(dataList):
 skyCorr = processSkyCorr(allData)
 
 patchDataId = dict(tract=0, patch="5,4")
+patchGen3id = dict(skymap="ci_hsc", tract=0, patch=69)
 patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.items()))
 
 # Coadd construction
@@ -284,16 +300,21 @@ def processCoadds(filterName, dataList):
                      [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " " + STDARGS +
                       " -c doApplyUberCal=False",
-                      validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName)]) for
-             exp in exposures]
+                      validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName,
+                               gen3id=dict(camera="HSC", visit=exp, **patchGen3id))
+                      ]) for exp in exposures]
     coadd = command("coadd-" + filterName, warps + [preCoadd],
-                    [getExecutable("pipe_tasks", "assembleCoadd.py") + " --warpCompareCoadd " + PROC + " " + ident + " " +
-                     " ".join(data.id("--selectId") for data in dataList) + " " + STDARGS,
-                     validate(CoaddValidation, DATADIR, patchDataId, filter=filterName)
+                    [getExecutable("pipe_tasks", "assembleCoadd.py") + " --warpCompareCoadd " + PROC +
+                     " " + ident + " " + " ".join(data.id("--selectId") for data in dataList) + " " +
+                     STDARGS,
+                     validate(CoaddValidation, DATADIR, patchDataId, filter=filterName,
+                              gen3id=dict(abstract_filter=filterName[-1].lower(), **patchGen3id))
                      ])
     detect = command("detect-" + filterName, [coadd, preDetect],
                      [getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + ident +
-                      " " + STDARGS, validate(DetectionValidation, DATADIR, patchDataId, filter=filterName)
+                      " " + STDARGS,
+                      validate(DetectionValidation, DATADIR, patchDataId, filter=filterName,
+                               gen3id=dict(abstract_filter=filterName[-1].lower(), **patchGen3id))
                       ])
     return detect
 
@@ -304,7 +325,7 @@ filterList = coadds.keys()
 mergeDetections = command("mergeDetections", sum(coadds.values(), []),
                           [getExecutable("pipe_tasks", "mergeCoaddDetections.py") + " " + PROC + " --id " +
                            patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
-                           validate(MergeDetectionsValidation, DATADIR, patchDataId)
+                           validate(MergeDetectionsValidation, DATADIR, patchDataId, gen3id=patchGen3id)
                            ])
 
 # Since the deblender input is a single mergedDet catalog,
@@ -323,7 +344,8 @@ def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
                    [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --id " +
                     patchId + " filter=" + filterName + " " + STDARGS,
-                    validate(MeasureValidation, DATADIR, patchDataId, filter=filterName)
+                    validate(MeasureValidation, DATADIR, patchDataId, filter=filterName,
+                             gen3id=dict(abstract_filter=filterName[-1].lower(), **patchGen3id))
                     ])
 
 measure = [measureCoadds(ff) for ff in filterList]
@@ -331,7 +353,7 @@ measure = [measureCoadds(ff) for ff in filterList]
 mergeMeasurements = command("mergeMeasurements", measure,
                             [getExecutable("pipe_tasks", "mergeCoaddMeasurements.py") + " " + PROC +
                              " --id " + patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
-                             validate(MergeMeasurementsValidation, DATADIR, patchDataId)
+                             validate(MergeMeasurementsValidation, DATADIR, patchDataId, gen3id=patchGen3id)
                              ])
 
 # preForcedPhotCoadd step is a work-around for a race on schema/config/versions
@@ -341,7 +363,8 @@ def forcedPhotCoadd(filterName):
     return command("forced-coadd-" + filterName, [mergeMeasurements, preForcedPhotCoadd],
                    [getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --id " + patchId +
                     " filter=" + filterName + " " + STDARGS,
-                    validate(ForcedPhotCoaddValidation, DATADIR, patchDataId, filter=filterName)
+                    validate(ForcedPhotCoaddValidation, DATADIR, patchDataId, filter=filterName,
+                             gen3id=dict(abstract_filter=filterName[-1].lower(), **patchGen3id))
                     ])
 
 forcedPhotCoadd = [forcedPhotCoadd(ff) for ff in filterList]
@@ -353,9 +376,18 @@ preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
 
 forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.values(), [])]
 
-versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
+gen3repo = env.Command(os.path.join(REPO, "gen3.sqlite3"), [forcedPhotCcd, forcedPhotCoadd],
+                       [getExecutable("ci_hsc", "gen3.py")])
+env.Alias("gen3repo", gen3repo)
 
-everything = [versions]
+gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
+env.Alias("gen3repo-validate", gen3repoValidate)
+
+everything = [gen3repoValidate]
+
+if not GetOption("no_versions"):
+    versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
+    everything.append(versions)
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")

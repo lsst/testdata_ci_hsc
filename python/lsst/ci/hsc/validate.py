@@ -38,6 +38,8 @@ def main():
     parser.add_argument("cls", help="Name of validation class")
     parser.add_argument("root", help="Data repository root")
     parser.add_argument("--rerun", default=None, help="Rerun name")
+    parser.add_argument("--gen3", default=False, action='store_true', help="Test Gen3 repository")
+    parser.add_argument("--collection", default=None, help="Collection name (Gen3 only)")
     parser.add_argument("--id", nargs="*", action=IdValueAction, default=[],
                         help="Data identifier, e.g., visit=123 ccd=45", metavar="KEY=VALUE")
     args = parser.parse_args()
@@ -47,12 +49,16 @@ def main():
 
     root = args.root
     if args.rerun:
-        root = os.path.join(root, "rerun", args.rerun)
+        if not args.gen3:
+            root = os.path.join(root, "rerun", args.rerun)
 
-    validator = globals()[args.cls](root)
+    validator = globals()[args.cls](root, collection=args.collection, gen3=args.gen3)
     if args.id:
+        intKeys = ["visit", "ccd", "tract"]
+        if args.gen3:
+            intKeys.extend(["patch", "sensor", "exposure"])
         for dataId in args.id:
-            dataId = {key: int(value) if key in ("visit", "ccd", "tract") else value for
+            dataId = {key: int(value) if key in intKeys else value for
                       key, value in dataId.items()}
             validator.run(dataId)
     else:
@@ -70,17 +76,23 @@ class Validation(object):
     _minMatches = 10  # Minimum number of matches
     _butler = {}
 
-    def __init__(self, root, log=None):
+    def __init__(self, root, log=None, gen3=False, collection=None):
         if log is None:
             log = lsst.log.Log.getDefaultLogger()
         self.log = log
         self.root = root
+        self.gen3 = gen3
+        self.collection = collection
         self._butler = None
 
     @property
     def butler(self):
         if not self._butler:
-            self._butler = Butler(self.root)
+            if self.gen3:
+                from . import gen3
+                self._butler = gen3.getButler(self.collection)
+            else:
+                self._butler = Butler(self.root)
         return self._butler
 
     def assertTrue(self, description, success):
@@ -117,6 +129,8 @@ class Validation(object):
                             (("%s_flag_apCorr" % alg) in catalog.schema))
 
     def validateDataset(self, dataId, dataset):
+        if self.gen3 and dataset.endswith("metadata"):
+            return
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
         # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
@@ -130,7 +144,10 @@ class Validation(object):
             raise
 
     def validateFile(self, dataId, dataset):
-        filename = self.butler.get(dataset + "_filename", dataId)[0]
+        filename = self.butler.getUri(dataset, dataId)
+        if self.gen3:
+            assert filename.startswith("file://")
+            filename = os.path.join(self.root, filename[len("file://"):])
         self.assertTrue("%s exists on disk" % dataset, os.path.exists(filename))
         self.assertGreater("%s has non-zero size" % dataset, os.stat(filename).st_size, 0)
 
@@ -142,6 +159,8 @@ class Validation(object):
     def validateMatches(self, dataId):
         sources = self.butler.get(self._sourceDataset, dataId)
         packedMatches = self.butler.get(self._matchDataset, dataId)
+        if self.gen3:  # TODO: enable after refcat loading works with Gen3
+            return
         config = LoadIndexedReferenceObjectsTask.ConfigClass()
         config.ref_dataset_name = "ps1_pv3_3pi_20170110"
         refObjLoader = LoadIndexedReferenceObjectsTask(self.butler, config=config)
@@ -258,7 +277,8 @@ class DetectionValidation(Validation):
 
     def run(self, dataId, **kwargs):
         Validation.run(self, dataId, **kwargs)
-
+        if self.gen3:  # TODO: implement metadata component access in Gen3 and enable this check.
+            return
         md = self.butler.get("deepCoadd_calexp_md", dataId)
         varScale = md.getScalar("variance_scale")
         self.assertGreater("variance_scale is positive", varScale, 0.0)

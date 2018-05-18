@@ -22,47 +22,17 @@
 import os
 
 from lsst.utils import getPackageDir
-from lsst.daf.butler.core import Registry, Datastore, Config, StorageClassFactory
+from lsst.daf.butler import Butler, ButlerConfig, Registry, Datastore, Config, StorageClassFactory
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
 from lsst.obs.subaru.gen3 import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
 
-butlerConfig = Config()
-butlerConfig["registry.cls"] = "lsst.daf.butler.registries.sqliteRegistry.SqliteRegistry"
-butlerConfig["registry.db"] = "sqlite:///{}/gen3.sqlite3".format(REPO_ROOT)
-butlerConfig["registry.schema"] = os.path.join(getPackageDir("daf_butler"),
-                                               "config/registry/default_schema.yaml")
-butlerConfig["storageClasses.config"] = os.path.join(getPackageDir("daf_butler"),
-                                                     "config/registry/storageClasses.yaml")
-butlerConfig["datastore.cls"] = "lsst.daf.butler.datastores.posixDatastore.PosixDatastore"
-butlerConfig["datastore.root"] = REPO_ROOT
-butlerConfig["datastore.create"] = True
-butlerConfig["datastore.records.table"] = "PosixDatastoreRecords"
-butlerConfig["datastore.formatters"] = {
-    "Catalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "PeakCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "SourceCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "ImageF": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "ImageU": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "DecoratedImageU": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "MaskX": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "Exposure": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
-    "ExposureF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
-    "ExposureI": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
-    "SkyMap": "lsst.daf.butler.formatters.pickleFormatter.PickleFormatter",
-    "TablePersistableTransmissionCurve":
-        "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "Background": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "Config": "lsst.daf.butler.formatters.pexConfigFormatter.PexConfigFormatter",
-    "Packages": "lsst.daf.butler.formatters.pickleFormatter.PickleFormatter",
-}
-
-StorageClassFactory.fromConfig(butlerConfig)
-
 converterConfig = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
 converterConfig["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
+butlerConfig = ButlerConfig(REPO_ROOT)
+StorageClassFactory().addFromConfig(butlerConfig)
 
 
 def getRegistry():
@@ -71,6 +41,10 @@ def getRegistry():
 
 def getDatastore(registry):
     return Datastore.fromConfig(config=butlerConfig, registry=registry)
+
+
+def getButler(collection):
+    return Butler(config=butlerConfig, collection=collection)
 
 
 def registerInstrument(registry):
