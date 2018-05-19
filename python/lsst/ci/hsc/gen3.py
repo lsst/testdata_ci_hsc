@@ -57,6 +57,7 @@ def walk():
     walker = ConversionWalker(converterConfig)
     walker.tryRoot(REPO_ROOT)
     walker.scanAll()
+    walker.readVisitInfo()
     return walker
 
 
