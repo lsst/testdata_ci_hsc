@@ -31,6 +31,8 @@ REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
 
 converterConfig = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2convert.yaml"))
 converterConfig["skymaps"] = {os.path.join(REPO_ROOT, "rerun", "ci_hsc"): "ci_hsc"}
+converterConfig["regions"][0]["collection"] = "shared/ci_hsc"
+
 butlerConfig = ButlerConfig(REPO_ROOT)
 StorageClassFactory().addFromConfig(butlerConfig)
 
