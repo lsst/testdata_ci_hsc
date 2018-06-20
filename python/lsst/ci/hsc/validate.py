@@ -61,13 +61,13 @@ def main():
 
 
 class Validation(object):
-    _datasets = [] # List of datasets to check we can read
-    _files = [] # List of datasets to check that file exists
-    _sourceDataset = None # Dataset name of source catalog
-    _minSources = 100 # Minimum number of sources
-    _matchDataset = None # Dataset name of matches
+    _datasets = []  # List of datasets to check we can read
+    _files = []  # List of datasets to check that file exists
+    _sourceDataset = None  # Dataset name of source catalog
+    _minSources = 100  # Minimum number of sources
+    _matchDataset = None  # Dataset name of matches
     _matchFullDataset = None  # Dataset name of denormalized matches
-    _minMatches = 10 # Minimum number of matches
+    _minMatches = 10  # Minimum number of matches
     _butler = {}
 
     def __init__(self, root, log=None):
@@ -107,7 +107,6 @@ class Validation(object):
     def assertLessEqual(self, description, num1, num2):
         self.assertTrue(description + " (%s <= %s)" % (num1, num2), num1 <= num2)
 
-
     def checkApertureCorrections(self, catalog):
         """Utility function for derived classes that want to verify that aperture corrections were applied
         """
@@ -117,7 +116,6 @@ class Validation(object):
                             (("%s_apCorrSigma" % alg) in catalog.schema) and
                             (("%s_flag_apCorr" % alg) in catalog.schema))
 
-
     def validateDataset(self, dataId, dataset):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
@@ -125,7 +123,7 @@ class Validation(object):
         try:
             data = self.butler.get(dataset, dataId)
             self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
-        except:
+        except Exception:
             if dataset.endswith("metadata"):
                 self.log.warn("Unable to load '%s'; this is likely DM-4927." % dataset)
                 return
@@ -205,7 +203,7 @@ class SfmValidation(Validation):
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
         self.checkApertureCorrections(catalog)
-        # Check that at least 95% of the stars we used to model the PSF end up classified as stars. We 
+        # Check that at least 95% of the stars we used to model the PSF end up classified as stars. We
         # certainly need much more purity than that to build good PSF models, but
         # this should verify that aperture correction and extendendess are running and configured reasonably
         # (but it may not be sensitive enough to detect subtle bugs).
