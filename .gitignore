@@ -5,3 +5,7 @@ config.log
 DATA
 *.pyc
 bin/
+.cache
+.pytest_cache
+pytest_session.txt
+.coverage
