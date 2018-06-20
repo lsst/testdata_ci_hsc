@@ -262,7 +262,7 @@ class DetectionValidation(Validation):
         Validation.run(self, dataId, **kwargs)
 
         md = self.butler.get("deepCoadd_calexp_md", dataId)
-        varScale = md.get("variance_scale")
+        varScale = md.getScalar("variance_scale")
         self.assertGreater("variance_scale is positive", varScale, 0.0)
 
 
