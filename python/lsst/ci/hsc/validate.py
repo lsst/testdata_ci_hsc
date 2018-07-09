@@ -226,7 +226,7 @@ class SfmValidation(Validation):
         # certainly need much more purity than that to build good PSF models, but
         # this should verify that aperture correction and extendendess are running and configured reasonably
         # (but it may not be sensitive enough to detect subtle bugs).
-        psfStars = catalog.get("calib_psfUsed")
+        psfStars = catalog.get("calib_psf_used")
         extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
         self.assertGreater(
             "At least 95% of sources used to build the PSF are classified as stars",
@@ -300,17 +300,17 @@ class MeasureValidation(Validation):
 
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
-        self.assertTrue("calib_psfCandidate field exists in deepCoadd_meas catalog",
-                        "calib_psfCandidate" in catalog.schema)
-        self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
-                        "calib_psfUsed" in catalog.schema)
+        self.assertTrue("calib_psf_candidate field exists in deepCoadd_meas catalog",
+                        "calib_psf_candidate" in catalog.schema)
+        self.assertTrue("calib_psf_used field exists in deepCoadd_meas catalog",
+                        "calib_psf_used" in catalog.schema)
         self.checkApertureCorrections(catalog)
         # Check that at least 90% of the stars we used to model the PSF end up classified as stars
         # on the coadd.  We certainly need much more purity than that to build good PSF models, but
         # this should verify that flag propagation, aperture correction, and extendendess are all
         # running and configured reasonably (but it may not be sensitive enough to detect subtle
         # bugs).
-        psfStars = catalog.get("calib_psfUsed")
+        psfStars = catalog.get("calib_psf_used")
         extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
         self.assertGreater(
             "More than 90% of sources used to build the PSF are classified as stars on the coadd",
