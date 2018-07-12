@@ -323,7 +323,7 @@ class VersionValidation(Validation):
         Validation.run(self, dataId, **kwargs)
 
         packages = self.butler.get("packages")  # No dataId needed
-        thirdparty = ['cfitsio', 'esutil', 'fftw', 'future', 'galsim', 'gsl', 'matplotlib',
+        thirdparty = ['astropy', 'cfitsio', 'esutil', 'fftw', 'future', 'galsim', 'gsl', 'matplotlib',
                       'numpy', 'python', 'scipy', 'wcslib']
         ours = ['afw', 'base', 'coadd_utils', 'daf_base', 'daf_persistence', 'ip_diffim', 'ip_isr',
                 'meas_algorithms', 'meas_astrom', 'meas_base', 'meas_deblender', 'meas_extensions_convolved',
