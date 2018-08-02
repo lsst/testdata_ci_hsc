@@ -113,7 +113,7 @@ class Validation(object):
         for alg in ("base_PsfFlux", "base_GaussianFlux"):
             self.assertTrue("Aperture correction fields for %s are present." % alg,
                             (("%s_apCorr" % alg) in catalog.schema) and
-                            (("%s_apCorrSigma" % alg) in catalog.schema) and
+                            (("%s_apCorrErr" % alg) in catalog.schema) and
                             (("%s_flag_apCorr" % alg) in catalog.schema))
 
     def validateDataset(self, dataId, dataset):
