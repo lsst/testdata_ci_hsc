@@ -379,7 +379,8 @@ forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.values(), [])
 
 gen3repo = env.Command([os.path.join(REPO, "butler.yaml"), os.path.join(REPO, "gen3.sqlite3")],
                        [forcedPhotCcd, forcedPhotCoadd],
-                       [getExecutable("daf_butler", "makeButlerRepo.py") + " " + REPO, getExecutable("ci_hsc", "gen3.py")])
+                       [getExecutable("daf_butler", "makeButlerRepo.py") + " " + REPO,
+                        getExecutable("ci_hsc", "gen3.py") +  " --verbose"])
 env.Alias("gen3repo", gen3repo)
 
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
