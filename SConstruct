@@ -331,7 +331,9 @@ mergeDetections = command("mergeDetections", sum(coadds.values(), []),
 # Since the deblender input is a single mergedDet catalog,
 # but the output is a SourceCatalog in each band,
 # we have to validate each band separately
-deblendValidation = [validate(DeblendSourcesValidation, DATADIR, patchDataId, filter=ff) for ff in filterList]
+deblendValidation = [validate(DeblendSourcesValidation, DATADIR, patchDataId, filter=ff,
+                              gen3id=dict(abstract_filter=ff[-1].lower(), **patchGen3id))
+                     for ff in filterList]
 deblendSources = command("deblendSources", mergeDetections,
                          [getExecutable("pipe_tasks", "deblendCoaddSources.py") + " " + PROC + " --id " +
                            patchId + " filter=" + "^".join(filterList) + " " + STDARGS
