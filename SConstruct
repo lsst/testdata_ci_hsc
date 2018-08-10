@@ -307,8 +307,14 @@ mergeDetections = command("mergeDetections", sum(coadds.values(), []),
                            validate(MergeDetectionsValidation, DATADIR, patchDataId)
                            ])
 
+deblendSources = command("deblendSources", mergeDetections,
+                         [getExecutable("pipe_tasks", "deblendCoaddSources.py") + " " + PROC + " --id " +
+                           patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
+                           validate(DeblendSourcesValidation, DATADIR, patchDataId)
+                         ])
+
 # preMeasure step is a work-around for a race on schema/config/versions
-preMeasure = command("measure", mergeDetections,
+preMeasure = command("measure", deblendSources,
                      getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " " + STDARGS)
 def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
