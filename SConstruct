@@ -307,11 +307,14 @@ mergeDetections = command("mergeDetections", sum(coadds.values(), []),
                            validate(MergeDetectionsValidation, DATADIR, patchDataId)
                            ])
 
+# Since the deblender input is a single mergedDet catalog,
+# but the output is a SourceCatalog in each band,
+# we have to validate each band separately
+deblendValidation = [validate(DeblendSourcesValidation, DATADIR, patchDataId, filter=ff) for ff in filterList]
 deblendSources = command("deblendSources", mergeDetections,
                          [getExecutable("pipe_tasks", "deblendCoaddSources.py") + " " + PROC + " --id " +
-                           patchId + " filter=" + "^".join(filterList) + " " + STDARGS,
-                           validate(DeblendSourcesValidation, DATADIR, patchDataId)
-                         ])
+                           patchId + " filter=" + "^".join(filterList) + " " + STDARGS
+                         ] + deblendValidation)
 
 # preMeasure step is a work-around for a race on schema/config/versions
 preMeasure = command("measure", deblendSources,
