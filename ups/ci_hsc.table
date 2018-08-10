@@ -14,5 +14,6 @@ setupRequired(scons)
 setupRequired(sconsUtils)
 setupRequired(utils)
 setupRequired(pipe_drivers)
+setupRequired(daf_butler)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)

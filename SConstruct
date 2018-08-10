@@ -331,7 +331,9 @@ mergeDetections = command("mergeDetections", sum(coadds.values(), []),
 # Since the deblender input is a single mergedDet catalog,
 # but the output is a SourceCatalog in each band,
 # we have to validate each band separately
-deblendValidation = [validate(DeblendSourcesValidation, DATADIR, patchDataId, filter=ff) for ff in filterList]
+deblendValidation = [validate(DeblendSourcesValidation, DATADIR, patchDataId, filter=ff,
+                              gen3id=dict(abstract_filter=ff[-1].lower(), **patchGen3id))
+                     for ff in filterList]
 deblendSources = command("deblendSources", mergeDetections,
                          [getExecutable("pipe_tasks", "deblendCoaddSources.py") + " " + PROC + " --id " +
                            patchId + " filter=" + "^".join(filterList) + " " + STDARGS
@@ -379,7 +381,8 @@ forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.values(), [])
 
 gen3repo = env.Command([os.path.join(REPO, "butler.yaml"), os.path.join(REPO, "gen3.sqlite3")],
                        [forcedPhotCcd, forcedPhotCoadd],
-                       [getExecutable("daf_butler", "makeButlerRepo.py") + " " + REPO, getExecutable("ci_hsc", "gen3.py")])
+                       [getExecutable("daf_butler", "makeButlerRepo.py") + " " + REPO,
+                        getExecutable("ci_hsc", "gen3.py") +  " --verbose"])
 env.Alias("gen3repo", gen3repo)
 
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
