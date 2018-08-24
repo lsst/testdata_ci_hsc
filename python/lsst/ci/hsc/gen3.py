@@ -24,7 +24,7 @@ import os
 from lsst.utils import getPackageDir
 from lsst.daf.butler import Butler, ButlerConfig, Registry, Datastore, Config, StorageClassFactory
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
-from lsst.obs.subaru.gen3 import HyperSuprimeCam
+from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
 from lsst.obs.hsc import HscMapper
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
