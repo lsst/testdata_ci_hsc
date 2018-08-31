@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkyCorrValidation", "SkymapValidation",
            "WarpValidation", "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation",
            "MeasureValidation", "MergeMeasurementsValidation", "ForcedPhotCoaddValidation",
@@ -288,9 +286,11 @@ class MergeDetectionsValidation(Validation):
     _datasets = ["mergeCoaddDetections_config", "deepCoadd_mergeDet_schema"]
     _sourceDataset = "deepCoadd_mergeDet"
 
+
 class DeblendSourcesValidation(Validation):
     _datasets = ["deblendCoaddSources_config", "deepCoadd_deblendedFlux_schema"]
     _sourceDataset = "deepCoadd_deblendedFlux"
+
 
 class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
