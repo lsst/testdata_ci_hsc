@@ -126,6 +126,25 @@ class Validation(object):
                             (("%s_apCorrErr" % alg) in catalog.schema) and
                             (("%s_flag_apCorr" % alg) in catalog.schema))
 
+    def checkPsfStarsAndFlags(self, catalog, minStellarFraction=0.95, doCheckFlags=True):
+        """Utility function for derived classes that want to verify PSF source selection and flag setting
+        """
+        psfStarsUsed = catalog.get("calib_psf_used")
+        extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
+        self.assertGreater(
+            "At least {:}% of sources used to build the PSF are classified as stars".
+            format(str(int(100*minStellarFraction))),
+            numpy.logical_and(extStars, psfStarsUsed).sum(), minStellarFraction*psfStarsUsed.sum()
+        )
+        if doCheckFlags:
+            psfStarsReserved = catalog.get("calib_psf_reserved")
+            psfStarsCandidate = catalog.get("calib_psf_candidate")
+            self.assertGreaterEqual(
+                ("Number of candidate PSF stars >= sum of used and reserved stars "
+                 "(greater if any of the non-reserved candidates were rejected by the determiner)"),
+                psfStarsCandidate.sum(), psfStarsUsed.sum() + psfStarsReserved.sum()
+            )
+
     def validateDataset(self, dataId, dataset):
         if self.gen3 and dataset.endswith("metadata"):
             return
@@ -224,13 +243,7 @@ class SfmValidation(Validation):
         # certainly need much more purity than that to build good PSF models, but
         # this should verify that aperture correction and extendendess are running and configured reasonably
         # (but it may not be sensitive enough to detect subtle bugs).
-        psfStars = catalog.get("calib_psf_used")
-        extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
-        self.assertGreater(
-            "At least 95% of sources used to build the PSF are classified as stars",
-            numpy.logical_and(extStars, psfStars).sum(),
-            0.95*psfStars.sum()
-        )
+        self.checkPsfStarsAndFlags(catalog, minStellarFraction=0.95)
 
 
 class SkyCorrValidation(Validation):
@@ -316,13 +329,7 @@ class MeasureValidation(Validation):
         # this should verify that flag propagation, aperture correction, and extendendess are all
         # running and configured reasonably (but it may not be sensitive enough to detect subtle
         # bugs).
-        psfStars = catalog.get("calib_psf_used")
-        extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
-        self.assertGreater(
-            "More than 90% of sources used to build the PSF are classified as stars on the coadd",
-            numpy.logical_and(extStars, psfStars).sum(),
-            0.90*psfStars.sum()
-        )
+        self.checkPsfStarsAndFlags(catalog, minStellarFraction=0.90, doCheckFlags=False)
 
 
 class MergeMeasurementsValidation(Validation):
