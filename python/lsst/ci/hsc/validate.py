@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkyCorrValidation", "SkymapValidation",
            "WarpValidation", "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation",
            "MeasureValidation", "MergeMeasurementsValidation", "ForcedPhotCoaddValidation",
@@ -288,9 +286,11 @@ class MergeDetectionsValidation(Validation):
     _datasets = ["mergeCoaddDetections_config", "deepCoadd_mergeDet_schema"]
     _sourceDataset = "deepCoadd_mergeDet"
 
+
 class DeblendSourcesValidation(Validation):
     _datasets = ["deblendCoaddSources_config", "deepCoadd_deblendedFlux_schema"]
     _sourceDataset = "deepCoadd_deblendedFlux"
+
 
 class MeasureValidation(Validation):
     _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
@@ -304,6 +304,12 @@ class MeasureValidation(Validation):
                         "calib_psf_candidate" in catalog.schema)
         self.assertTrue("calib_psf_used field exists in deepCoadd_meas catalog",
                         "calib_psf_used" in catalog.schema)
+        self.assertTrue("calib_astrometry_used field exists in deepCoadd_meas catalog",
+                        "calib_astrometry_used" in catalog.schema)
+        self.assertTrue("calib_photometry_used field exists in deepCoadd_meas catalog",
+                        "calib_photometry_used" in catalog.schema)
+        self.assertTrue("calib_photometry_reserved field exists in deepCoadd_meas catalog",
+                        "calib_photometry_reserved" in catalog.schema)
         self.checkApertureCorrections(catalog)
         # Check that at least 90% of the stars we used to model the PSF end up classified as stars
         # on the coadd.  We certainly need much more purity than that to build good PSF models, but
