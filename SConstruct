@@ -135,9 +135,9 @@ class Data(Struct):
     def gen3id(self, raw=False):
         """Returns the Gen3 data ID for this data"""
         if raw:
-            return dict(camera="HSC", exposure=self.visit, sensor=self.ccd)
+            return dict(instrument="HSC", exposure=self.visit, detector=self.ccd)
         else:
-            return dict(camera="HSC", visit=self.visit, sensor=self.ccd)
+            return dict(instrument="HSC", visit=self.visit, detector=self.ccd)
 
     def id(self, prefix="--id", tract=None):
         """Returns a suitable --id command-line string"""
@@ -301,7 +301,7 @@ def processCoadds(filterName, dataList):
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " " + STDARGS +
                       " -c doApplyUberCal=False",
                       validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName,
-                               gen3id=dict(camera="HSC", visit=exp, **patchGen3id))
+                               gen3id=dict(instrument="HSC", visit=exp, **patchGen3id))
                       ]) for exp in exposures]
     coadd = command("coadd-" + filterName, warps + [preCoadd],
                     [getExecutable("pipe_tasks", "assembleCoadd.py") + " --warpCompareCoadd " + PROC +
