@@ -30,7 +30,7 @@ from lsst.ci.hsc import gen3
 def main():
     registry = gen3.getRegistry()
     datastore = gen3.getDatastore(registry)
-    if not registry.findDataUnitEntry("Camera", {"camera": "HSC"}):
+    if not registry.findDataUnitEntry("Instrument", {"instrument": "HSC"}):
         gen3.registerInstrument(registry)
     walker = gen3.walk()
     gen3.write(walker, registry, datastore)
