@@ -323,6 +323,16 @@ class MeasureValidation(Validation):
                         "calib_photometry_used" in catalog.schema)
         self.assertTrue("calib_photometry_reserved field exists in deepCoadd_meas catalog",
                         "calib_photometry_reserved" in catalog.schema)
+        childrenFailed = []
+        for column in catalog.schema:
+            if column.field.getName().startswith("merge_footprint"):
+                for parent in catalog.getChildren(0):
+                    for child in catalog.getChildren(parent.getId()):
+                        if child[column.key] != parent[column.key]:
+                            childrenFailed.append(child.getId())
+                         
+        self.assertTrue("merge_footprint from parent propagated to children {}".format(childrenFailed),
+                        len(childrenFailed) == 0)
         self.checkApertureCorrections(catalog)
         # Check that at least 90% of the stars we used to model the PSF end up classified as stars
         # on the coadd.  We certainly need much more purity than that to build good PSF models, but
