@@ -26,12 +26,13 @@ import argparse
 from lsst.log import Log
 from lsst.ci.hsc import gen3
 
+# Import HSC Instrument class to enable HSC Gen3 specializations
+import lsst.obs.subaru.gen3.hsc  # noqa
+
 
 def main():
     registry = gen3.getRegistry()
     datastore = gen3.getDatastore(registry)
-    if not registry.findDimensionEntry("Instrument", {"instrument": "HSC"}):
-        gen3.registerInstrument(registry)
     walker = gen3.walk()
     gen3.write(walker, registry, datastore)
 
