@@ -44,7 +44,7 @@ def getDatastore(registry):
 
 
 def getButler(collection):
-    return Butler(config=butlerConfig, collection=collection)
+    return Butler(config=butlerConfig, run=collection)
 
 
 def walk():

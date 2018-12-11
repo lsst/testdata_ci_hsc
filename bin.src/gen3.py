@@ -26,8 +26,7 @@ import argparse
 from lsst.log import Log
 from lsst.ci.hsc import gen3
 
-# Import HSC Instrument class to enable HSC Gen3 specializations
-import lsst.obs.subaru.gen3.hsc  # noqa
+from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
 
 
 def main():
@@ -35,6 +34,7 @@ def main():
     datastore = gen3.getDatastore(registry)
     walker = gen3.walk()
     gen3.write(walker, registry, datastore)
+    HyperSuprimeCam().writeCamera(gen3.getButler("calib"))
 
 
 if __name__ == "__main__":
