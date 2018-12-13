@@ -148,7 +148,7 @@ class Validation(object):
     def validateDataset(self, dataId, dataset):
         if self.gen3 and dataset.endswith("metadata"):
             return
-        self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
+        self.assertTrue("%s exists" % dataset, self.butler.datasetExists(dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
         # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
         try:
