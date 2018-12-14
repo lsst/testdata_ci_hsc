@@ -24,8 +24,6 @@ import os
 from lsst.utils import getPackageDir
 from lsst.daf.butler import Butler, ButlerConfig, Registry, Datastore, Config, StorageClassFactory
 from lsst.daf.butler.gen2convert import ConversionWalker, ConversionWriter
-from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
-from lsst.obs.hsc import HscMapper
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
 
@@ -46,13 +44,7 @@ def getDatastore(registry):
 
 
 def getButler(collection):
-    return Butler(config=butlerConfig, collection=collection)
-
-
-def registerInstrument(registry):
-    mapper = HscMapper(root=REPO_ROOT)
-    instrument = HyperSuprimeCam(mapper)
-    instrument.register(registry)
+    return Butler(config=butlerConfig, run=collection)
 
 
 def walk():

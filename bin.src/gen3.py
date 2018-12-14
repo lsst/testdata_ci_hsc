@@ -26,14 +26,15 @@ import argparse
 from lsst.log import Log
 from lsst.ci.hsc import gen3
 
+from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
+
 
 def main():
     registry = gen3.getRegistry()
     datastore = gen3.getDatastore(registry)
-    if not registry.findDimensionEntry("Instrument", {"instrument": "HSC"}):
-        gen3.registerInstrument(registry)
     walker = gen3.walk()
     gen3.write(walker, registry, datastore)
+    HyperSuprimeCam().writeCamera(gen3.getButler("calib"))
 
 
 if __name__ == "__main__":

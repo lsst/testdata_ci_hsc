@@ -11,6 +11,13 @@ from lsst.daf.persistence import Butler
 import lsst.log
 from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 
+# We need to import lsst.obs.subaru because it provides the
+# subaru_FilterFraction plugin that's referenced in some of the configs below,
+# and for some reason isn't being imported automatically by the config load
+# code itself.  This is DM-16829, and this workaround should be removed once
+# that ticket has been addressed.
+import lsst.obs.subaru  # noqa
+
 
 class IdValueAction(argparse.Action):
     """argparse action callback to process a data ID
