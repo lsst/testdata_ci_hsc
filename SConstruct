@@ -388,7 +388,12 @@ env.Alias("gen3repo", gen3repo)
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
 env.Alias("gen3repo-validate", gen3repoValidate)
 
-everything = [gen3repoValidate]
+tests = [command("test_import", [gen3repo], "python tests/test_import.py"),
+         command("test_butlerShims", [gen3repo], "python tests/test_butlerShims.py")]
+
+env.Alias("tests", tests)
+
+everything = [gen3repoValidate, tests]
 
 if not GetOption("no_versions"):
     versions = command("versions", [forcedPhotCcd, forcedPhotCoadd], validate(VersionValidation, DATADIR, {}))
