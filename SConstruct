@@ -69,20 +69,23 @@ def getProfiling(script):
     return "-m cProfile -o %s-%03d-%s.pstats" % (base, profileNum, script)
 
 
-def getExecutable(package, script):
+def getExecutable(package, script, directory=None):
     """
     Given the name of a package and a script or other executable which lies
-    within its `bin` subdirectory, return an appropriate string which can be
-    used to set up an appropriate environment and execute the command.
+    within the given subdirectory (defaults to "bin"), return an appropriate
+    string which can be used to set up an appropriate environment and execute
+    the command.
 
     This includes:
     * Specifying an explict list of paths to be searched by the dynamic linker;
     * Specifying a Python executable to be run (we assume the one on the default ${PATH} is appropriate);
     * Specifying the complete path to the script.
     """
+    if directory is None:
+        directory = "bin"
     return "{} python {} {}".format(libraryLoaderEnvironment(),
                                     getProfiling(script),
-                                    os.path.join(getPackageDir(package), "bin", script))
+                                    os.path.join(getPackageDir(package), directory, script))
 
 Execute(Mkdir(".scons"))
 
@@ -388,8 +391,8 @@ env.Alias("gen3repo", gen3repo)
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
 env.Alias("gen3repo-validate", gen3repoValidate)
 
-tests = [command("test_import", [gen3repo], "python tests/test_import.py"),
-         command("test_butlerShims", [gen3repo], "python tests/test_butlerShims.py")]
+tests = [command("test_import", [gen3repo], getExecutable("ci_hsc", "test_import.py", "tests")),
+         command("test_butlerShims", [gen3repo], getExecutable("ci_hsc", "test_butlerShims.py", "tests"))]
 
 env.Alias("tests", tests)
 
