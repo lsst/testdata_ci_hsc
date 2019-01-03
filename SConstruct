@@ -391,8 +391,8 @@ env.Alias("gen3repo", gen3repo)
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]
 env.Alias("gen3repo-validate", gen3repoValidate)
 
-tests = [command("test_import", [gen3repo], getExecutable("ci_hsc", "test_import.py", "tests")),
-         command("test_butlerShims", [gen3repo], getExecutable("ci_hsc", "test_butlerShims.py", "tests"))]
+tests = [command(f"test_{name}", [gen3repo], getExecutable("ci_hsc", f"test_{name}.py", "tests"))
+         for name in ("import", "butlerShims", "gen2convert")]
 
 env.Alias("tests", tests)
 
