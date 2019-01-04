@@ -29,7 +29,6 @@ from lsst.daf.butler import Butler
 
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
-TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
