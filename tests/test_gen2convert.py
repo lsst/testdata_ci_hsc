@@ -25,11 +25,11 @@ import unittest
 import lsst.utils.tests
 import lsst.afw.image.testUtils  # noqa; injects test methods into TestCase
 from lsst.utils import getPackageDir
-from lsst.daf.butler import Butler
+from lsst.daf.butler import Butler, DataId
+from lsst.daf.persistence import Butler as Butler2
 
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
-TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
@@ -66,6 +66,42 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
                 self.fail("physical_filter not in ('HSC-R', 'HSC-I')")
             count += 1
         self.assertGreater(count, 0)
+
+    def testObservationPacking(self):
+        """Test that packing Visit+Detector into an integer in Gen3 generates
+        the same results as in Gen2.
+        """
+        butler2 = Butler2(os.path.join(REPO_ROOT, "rerun", "ci_hsc"))
+        for visit, detector in [(903334, 16), (903338, 25), (903986, 100)]:
+            dataId2 = {"visit": visit, "ccd": detector}
+            dataId3 = self.butler.registry.expandDataId(visit=visit, detector=detector, instrument="HSC")
+            self.assertEqual(butler2.get("ccdExposureId", dataId2),
+                             self.butler.registry.packDataId("VisitDetector", dataId3))
+
+    def testSkyMapPacking(self):
+        """Test that packing Tract+PAtch into an integer in Gen3 works and is
+        self-consistent.
+
+        Note that this packing does *not* use the same algorithm as Gen2 and
+        hence generates different IDs, because the Gen2 algorithm is
+        problematically tied to the *default* SkyMap for a particular camera,
+        rather than the SkyMap actually used.
+        """
+        # SkyMap used by ci_hsc has only one tract, so the test coverage in
+        # that area isn't great.  That's okay because that's tested in SkyMap;
+        # what we care about here is that the converted repo has the necessary
+        # metadata to construct and use these packers at all.
+        for patch in [0, 43, 52]:
+            dataId = self.butler.registry.expandDataId(skymap="ci_hsc", tract=0, patch=patch,
+                                                       abstract_filter='r')
+            packer1 = self.butler.registry.makeDataIdPacker("TractPatch", dataId)
+            packer2 = self.butler.registry.makeDataIdPacker("TractPatchAbstractFilter", dataId)
+            self.assertNotEqual(packer1.pack(dataId), packer2.pack(dataId))
+            self.assertEqual(packer1.unpack(packer1.pack(dataId)),
+                             DataId(dataId, dimensions=packer1.dimensions.required))
+            self.assertEqual(packer2.unpack(packer2.pack(dataId)), dataId)
+            self.assertEqual(packer1.pack(dataId, abstract_filter='i'), packer1.pack(dataId))
+            self.assertNotEqual(packer2.pack(dataId, abstract_filter='i'), packer2.pack(dataId))
 
 
 def setup_module(module):
