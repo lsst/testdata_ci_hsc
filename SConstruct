@@ -153,7 +153,7 @@ class Data(Struct):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm, refcat],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() + " " +
-                        STDARGS, validate(SfmValidation, DATADIR, self.dataId, gen3id=self.gen3id())])
+                        STDARGS + " -c charImage.doWriteExposure=True" , validate(SfmValidation, DATADIR, self.dataId, gen3id=self.gen3id())])
 
     def forced(self, env, tract):
         """Process this data through CCD-level forced photometry"""
