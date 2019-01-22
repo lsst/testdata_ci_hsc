@@ -29,6 +29,7 @@ from lsst.utils import getPackageDir
 from lsst.daf.butler import Butler, DataId, DatasetOriginInfoDef
 from lsst.daf.persistence import Butler as Butler2
 from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
+from lsst.pipe.tasks.objectMasks import ObjectMaskCatalog
 
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
@@ -159,6 +160,14 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
             defects = butler.get(refsByName["defects"])
             self.assertIsInstance(defects, BaseCatalog)
             self.assertEqual(defects.schema.getNames(), {"x0", "y0", "width", "height"})
+
+    def testBrightObjectMasks(self):
+        """Test that bright object masks are included in the Gen3 repo.
+        """
+        regions = self.butler.get("brightObjectMask", skymap='ci_hsc', tract=0, patch=69,
+                                  abstract_filter='r')
+        self.assertIsInstance(regions, ObjectMaskCatalog)
+        self.assertGreater(len(regions), 0)
 
 
 def setup_module(module):
