@@ -24,9 +24,11 @@ import unittest
 
 import lsst.utils.tests
 import lsst.afw.image.testUtils  # noqa; injects test methods into TestCase
+from lsst.afw.table import BaseCatalog
 from lsst.utils import getPackageDir
-from lsst.daf.butler import Butler, DataId
+from lsst.daf.butler import Butler, DataId, DatasetOriginInfoDef
 from lsst.daf.persistence import Butler as Butler2
+from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
 
 
 REPO_ROOT = os.path.join(getPackageDir("ci_hsc"), "DATA")
@@ -79,7 +81,7 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
                              self.butler.registry.packDataId("VisitDetector", dataId3))
 
     def testSkyMapPacking(self):
-        """Test that packing Tract+PAtch into an integer in Gen3 works and is
+        """Test that packing Tract+Patch into an integer in Gen3 works and is
         self-consistent.
 
         Note that this packing does *not* use the same algorithm as Gen2 and
@@ -115,6 +117,48 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(rawR.getFilter().getName(), "r")
         rawI = self.butler.get("raw", instrument="HSC", exposure=903986, detector=16)
         self.assertEqual(rawI.getFilter().getName(), "i")
+
+    def testCuratedCalibrations(self):
+        """Test that defects, the camera, and the brighter-fatter kernel were
+        added to the Gen3 registry.
+        """
+        originInfo = DatasetOriginInfoDef(["raw", "calib"], [])
+        # Query for raws that have associated calibs of the types below;
+        # result is an iterator over rows that correspond roughly to data IDs.
+        rowsWithCalibs = list(
+            self.butler.registry.selectDimensions(
+                originInfo, expression="",
+                neededDatasetTypes=["raw", "camera", "bfKernel", "defects"],
+                futureDatasetTypes=[],
+            )
+        )
+        # Query for all rows, with no restriction on having associated calibs.
+        rowsWithoutCalibs = list(
+            self.butler.registry.selectDimensions(
+                originInfo, expression="",
+                neededDatasetTypes=["raw"],
+                futureDatasetTypes=[],
+            )
+        )
+        # We should get the same raws in both cases because all of the raws
+        # here should have associated calibs.
+        self.assertGreater(len(rowsWithoutCalibs), 0)
+        self.assertEqual(len(rowsWithCalibs), len(rowsWithoutCalibs))
+        # Try getting those calibs to make sure the files themselves are
+        # where the Butler thinks they are.
+        butler = Butler(REPO_ROOT, run="calib")
+        instrument = HyperSuprimeCam()
+        for row in rowsWithCalibs:
+            refsByName = {k.name: v for k, v in row.datasetRefs.items()}
+            cameraFromButler = butler.get(refsByName["camera"])
+            cameraFromInstrument = instrument.getCamera()
+            self.assertEqual(len(cameraFromButler), len(cameraFromInstrument))
+            self.assertEqual(cameraFromButler.getName(), cameraFromInstrument.getName())
+            self.assertFloatsEqual(butler.get(refsByName["bfKernel"]),
+                                   instrument.getBrighterFatterKernel())
+            defects = butler.get(refsByName["defects"])
+            self.assertIsInstance(defects, BaseCatalog)
+            self.assertEqual(defects.schema.getNames(), {"x0", "y0", "width", "height"})
 
 
 def setup_module(module):
