@@ -103,6 +103,19 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(packer1.pack(dataId, abstract_filter='i'), packer1.pack(dataId))
             self.assertNotEqual(packer2.pack(dataId, abstract_filter='i'), packer2.pack(dataId))
 
+    def testRawFilters(self):
+        """Test that raw data has the Filter component set.
+        """
+        # Note that the 'r' and 'i' values here look like Gen3 abstract_filter
+        # values, but they're something weird in between abstract and physical
+        # filters; if we had HSC-R2 data, the corresponding value would be 'r2',
+        # not just 'r'.  We need that to be compatible with Gen2 usage of the
+        # afw.image.Filter system.
+        rawR = self.butler.get("raw", instrument="HSC", exposure=903334, detector=16)
+        self.assertEqual(rawR.getFilter().getName(), "r")
+        rawI = self.butler.get("raw", instrument="HSC", exposure=903986, detector=16)
+        self.assertEqual(rawI.getFilter().getName(), "i")
+
 
 def setup_module(module):
     lsst.utils.tests.init()
