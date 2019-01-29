@@ -230,13 +230,6 @@ refcat = env.Command(refcatPath, mapper,
                      ["rm -f " + refcatPath,  # Delete any existing, perhaps leftover from previous
                       "ln -s %s %s" % (os.path.join(root, refcatName), refcatPath)])
 
-brightObjSource = os.path.join(root, "brightObjectMasks")
-brightObjTarget = os.path.join(REPO, "deepCoadd", "BrightObjectMasks")
-brightObj = env.Command(brightObjTarget, mapper,
-                        ["rm -f " + brightObjTarget,  # Delete any existing
-                         "mkdir -p " + os.path.dirname(brightObjTarget),
-                         "ln -s %s %s" % (brightObjSource, brightObjTarget)])
-
 # Add transmission curves to the repository.
 transmissionCurvesTarget = os.path.join(REPO, "transmission")
 transmissionCurves = env.Command(transmissionCurvesTarget, calib,
@@ -248,6 +241,15 @@ transmissionCurves = env.Command(transmissionCurvesTarget, calib,
 skymap = command("skymap", mapper,
                  [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py " + STDARGS,
                   validate(SkymapValidation, DATADIR, gen3id=dict(skymap="ci_hsc"))])
+
+# Add brightObjectMasks to the *rerun* dir, because their data IDs involve
+# the tracts and patches defined by the skymap.
+brightObjSource = os.path.join(root, "brightObjectMasks")
+brightObjTarget = os.path.join(DATADIR, "deepCoadd", "BrightObjectMasks")
+brightObj = env.Command(brightObjTarget, [mapper, skymap],
+                        ["rm -f " + brightObjTarget,  # Delete any existing
+                         "mkdir -p " + os.path.dirname(brightObjTarget),
+                         "ln -s %s %s" % (brightObjSource, brightObjTarget)])
 
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
