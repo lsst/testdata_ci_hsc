@@ -34,7 +34,7 @@ def main():
     datastore = gen3.getDatastore(registry)
     walker = gen3.walk()
     gen3.write(walker, registry, datastore)
-    HyperSuprimeCam().writeCamera(gen3.getButler("calib"))
+    HyperSuprimeCam().writeCuratedCalibrations(gen3.getButler("calib"))
 
 
 if __name__ == "__main__":
