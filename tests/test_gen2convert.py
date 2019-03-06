@@ -127,18 +127,17 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         # Query for raws that have associated calibs of the types below;
         # result is an iterator over rows that correspond roughly to data IDs.
         rowsWithCalibs = list(
-            self.butler.registry.selectDimensions(
+            self.butler.registry.selectMultipleDatasetTypes(
                 originInfo, expression="",
-                neededDatasetTypes=["raw", "camera", "bfKernel", "defects"],
-                futureDatasetTypes=[],
+                required=["raw", "camera", "bfKernel", "defects"],
+                perDatasetTypeDimensions=["CalibrationLabel"]
             )
         )
         # Query for all rows, with no restriction on having associated calibs.
         rowsWithoutCalibs = list(
-            self.butler.registry.selectDimensions(
+            self.butler.registry.selectMultipleDatasetTypes(
                 originInfo, expression="",
-                neededDatasetTypes=["raw"],
-                futureDatasetTypes=[],
+                required=["raw"],
             )
         )
         # We should get the same raws in both cases because all of the raws
