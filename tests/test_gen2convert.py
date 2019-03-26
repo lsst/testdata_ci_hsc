@@ -111,9 +111,9 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         """
         # Note that the 'r' and 'i' values here look like Gen3 abstract_filter
         # values, but they're something weird in between abstract and physical
-        # filters; if we had HSC-R2 data, the corresponding value would be 'r2',
-        # not just 'r'.  We need that to be compatible with Gen2 usage of the
-        # afw.image.Filter system.
+        # filters; if we had HSC-R2 data, the corresponding value would be
+        # 'r2', not just 'r'.  We need that to be compatible with Gen2 usage
+        # of the afw.image.Filter system.
         rawR = self.butler.get("raw", instrument="HSC", exposure=903334, detector=16)
         self.assertEqual(rawR.getFilter().getName(), "r")
         rawI = self.butler.get("raw", instrument="HSC", exposure=903986, detector=16)
