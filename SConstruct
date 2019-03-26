@@ -1,12 +1,16 @@
 # -*- python -*-
 
 import os
-import functools
 from collections import defaultdict
 from lsst.pipe.base import Struct
 from lsst.sconsUtils.utils import libraryLoaderEnvironment
 from lsst.utils import getPackageDir
-from lsst.ci.hsc.validate import *
+from lsst.ci.hsc.validate import (RawValidation, DetrendValidation, SfmValidation,
+                                  SkyCorrValidation, SkymapValidation, WarpValidation,
+                                  CoaddValidation, DetectionValidation, MergeDetectionsValidation,
+                                  MeasureValidation, MergeMeasurementsValidation,
+                                  ForcedPhotCoaddValidation, ForcedPhotCcdValidation,
+                                  VersionValidation, DeblendSourcesValidation)
 
 from SCons.Script import SConscript
 SConscript(os.path.join(".", "bin.src", "SConscript"))  # build bin scripts
@@ -15,6 +19,7 @@ env = Environment(ENV=os.environ)
 env["ENV"]["OMP_NUM_THREADS"] = "1"  # Disable threading; we're parallelising at a higher level
 
 gen3validateCmds = {}
+
 
 def validate(cls, root, dataId=None, gen3id=None, **kwargs):
     """!Construct a command-line for validation
@@ -31,7 +36,7 @@ def validate(cls, root, dataId=None, gen3id=None, **kwargs):
         dataId.update(kwargs)
     elif kwargs:
         dataId = kwargs
-    cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root,]
+    cmd = [getExecutable("ci_hsc", "validate.py"), cls.__name__, root]
     gen3 = cmd + ["--gen3", "--collection", "shared/ci_hsc"]
     if dataId:
         cmd += ["--id %s" % (" ".join("%s=%s" % (key, value) for key, value in dataId.items()))]
@@ -42,6 +47,8 @@ def validate(cls, root, dataId=None, gen3id=None, **kwargs):
 
 
 profileNum = -1
+
+
 def getProfiling(script):
     """Return python command-line argument string for profiling
 
@@ -78,7 +85,8 @@ def getExecutable(package, script, directory=None):
 
     This includes:
     * Specifying an explict list of paths to be searched by the dynamic linker;
-    * Specifying a Python executable to be run (we assume the one on the default ${PATH} is appropriate);
+    * Specifying a Python executable to be run (we assume the one on the
+      default ${PATH} is appropriate);
     * Specifying the complete path to the script.
     """
     if directory is None:
@@ -86,6 +94,7 @@ def getExecutable(package, script, directory=None):
     return "{} python {} {}".format(libraryLoaderEnvironment(),
                                     getProfiling(script),
                                     os.path.join(getPackageDir(package), directory, script))
+
 
 Execute(Mkdir(".scons"))
 
@@ -120,6 +129,7 @@ def command(target, source, cmd):
     env.Alias(target, name)
     return out
 
+
 class Data(Struct):
     """Data we can process"""
     def __init__(self, visit, ccd):
@@ -153,7 +163,8 @@ class Data(Struct):
         """Process this data through single frame measurement"""
         return command("sfm-" + self.name, ingestValidations + calibValidations + [preSfm, refcat],
                        [getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + self.id() + " " +
-                        STDARGS + " -c charImage.doWriteExposure=True" , validate(SfmValidation, DATADIR, self.dataId, gen3id=self.gen3id())])
+                        STDARGS + " -c charImage.doWriteExposure=True",
+                        validate(SfmValidation, DATADIR, self.dataId, gen3id=self.gen3id())])
 
     def forced(self, env, tract):
         """Process this data through CCD-level forced photometry"""
@@ -201,7 +212,7 @@ allData = {"HSC-R": [Data(903334, 16),
                      Data(903988, 23),
                      Data(903988, 24),
                      ],
-          }
+           }
 
 # Set up the data repository
 mapper = env.Command(os.path.join(REPO, "_mapper"), ["bin"],
@@ -212,11 +223,11 @@ mapper = env.Command(os.path.join(REPO, "_mapper"), ["bin"],
 calib = env.Command(os.path.join(REPO, "CALIB"), mapper,
                     ["rm -f " + os.path.join(REPO, "CALIB"),
                      "ln -s " + CALIB + " " + os.path.join(REPO, "CALIB")]
-                     )
+                    )
 ingest = env.Command(os.path.join(REPO, "registry.sqlite3"), calib,
                      [getExecutable("pipe_tasks", "ingestImages.py") + " " + REPO + " " + RAW +
                      "/*.fits --mode=link " + "-c clobber=True register.ignore=True " + STDARGS]
-                      )
+                     )
 ingestValidations = [command("ingestValidation-%(visit)d-%(ccd)d" % data.dataId, ingest,
                              validate(RawValidation, REPO, data.dataId, gen3id=data.gen3id(True))) for
                      data in sum(allData.values(), [])]
@@ -236,8 +247,8 @@ transmissionCurves = env.Command(transmissionCurvesTarget, calib,
                                  [getExecutable("obs_subaru", "installTransmissionCurves.py") + " " + REPO])
 
 # Create skymap
-# This needs to be done early and in serial, so that the package versions produced by it aren't clobbered
-# by other commands in-flight.
+# This needs to be done early and in serial, so that the package versions
+# produced by it aren't clobbered by other commands in-flight.
 skymap = command("skymap", mapper,
                  [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py " + STDARGS,
                   validate(SkymapValidation, DATADIR, gen3id=dict(skymap="ci_hsc"))])
@@ -254,9 +265,11 @@ brightObj = env.Command(brightObjTarget, [mapper, skymap],
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
 preSfm = command("sfm", [skymap, transmissionCurvesTarget],
-                 getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS + " -c charImage.doWriteExposure=True")
+                 getExecutable("pipe_tasks", "processCcd.py") + " " + PROC + " " + STDARGS +
+                 " -c charImage.doWriteExposure=True")
 env.Depends(preSfm, refcat)
 sfm = {(data.visit, data.ccd): data.sfm(env) for data in sum(allData.values(), [])}
+
 
 # Sky correction
 def processSkyCorr(dataList):
@@ -282,10 +295,11 @@ skyCorr = processSkyCorr(allData)
 
 patchDataId = dict(tract=0, patch="5,4")
 patchGen3id = dict(skymap="ci_hsc", tract=0, patch=69)
-patchId = " ".join(("%s=%s" % (k,v) for k,v in patchDataId.items()))
+patchId = " ".join(("%s=%s" % (k, v) for k, v in patchDataId.items()))
 
 # Coadd construction
-# preWarp, preCoadd and preDetect steps are a work-around for a race on schema/config/versions
+# preWarp, preCoadd and preDetect steps are a work-around for a race on
+# schema/config/versions
 preWarp = command("warp", skymap,
                   getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " " + STDARGS +
                   " -c doApplyUberCal=False ")
@@ -294,6 +308,8 @@ preCoadd = command("coadd", [skymap, brightObj],
                    PROC + " " + STDARGS)
 preDetect = command("detect", skymap,
                     getExecutable("pipe_tasks", "detectCoaddSources.py") + " " + PROC + " " + STDARGS)
+
+
 def processCoadds(filterName, dataList):
     """Generate coadds and run detection on them"""
     ident = "--id " + patchId + " filter=" + filterName
@@ -302,7 +318,7 @@ def processCoadds(filterName, dataList):
         exposures[data.visit].append(data)
     warps = [command("warp-%d" % exp,
                      [skymap, preWarp] + [skyCorr[exp]],
-                     [getExecutable("pipe_tasks", "makeCoaddTempExp.py") +  " " + PROC + " " + ident +
+                     [getExecutable("pipe_tasks", "makeCoaddTempExp.py") + " " + PROC + " " + ident +
                       " " + " ".join(data.id("--selectId") for data in exposures[exp]) + " " + STDARGS +
                       " -c doApplyUberCal=False",
                       validate(WarpValidation, DATADIR, patchDataId, visit=exp, filter=filterName,
@@ -323,6 +339,7 @@ def processCoadds(filterName, dataList):
                       ])
     return detect
 
+
 coadds = {ff: processCoadds(ff, allData[ff]) for ff in allData}
 
 # Multiband processing
@@ -341,12 +358,14 @@ deblendValidation = [validate(DeblendSourcesValidation, DATADIR, patchDataId, fi
                      for ff in filterList]
 deblendSources = command("deblendSources", mergeDetections,
                          [getExecutable("pipe_tasks", "deblendCoaddSources.py") + " " + PROC + " --id " +
-                           patchId + " filter=" + "^".join(filterList) + " " + STDARGS
-                         ] + deblendValidation)
+                          patchId + " filter=" + "^".join(filterList) + " " + STDARGS
+                          ] + deblendValidation)
 
 # preMeasure step is a work-around for a race on schema/config/versions
 preMeasure = command("measure", deblendSources,
                      getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " " + STDARGS)
+
+
 def measureCoadds(filterName):
     return command("measure-" + filterName, preMeasure,
                    [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --id " +
@@ -354,6 +373,7 @@ def measureCoadds(filterName):
                     validate(MeasureValidation, DATADIR, patchDataId, filter=filterName,
                              gen3id=dict(abstract_filter=filterName[-1].lower(), **patchGen3id))
                     ])
+
 
 measure = [measureCoadds(ff) for ff in filterList]
 
@@ -366,6 +386,8 @@ mergeMeasurements = command("mergeMeasurements", measure,
 # preForcedPhotCoadd step is a work-around for a race on schema/config/versions
 preForcedPhotCoadd = command("forcedPhotCoadd", [mapper, mergeMeasurements],
                              getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " " + STDARGS)
+
+
 def forcedPhotCoadd(filterName):
     return command("forced-coadd-" + filterName, [mergeMeasurements, preForcedPhotCoadd],
                    [getExecutable("meas_base", "forcedPhotCoadd.py") + " " + PROC + " --id " + patchId +
@@ -373,6 +395,7 @@ def forcedPhotCoadd(filterName):
                     validate(ForcedPhotCoaddValidation, DATADIR, patchDataId, filter=filterName,
                              gen3id=dict(abstract_filter=filterName[-1].lower(), **patchGen3id))
                     ])
+
 
 forcedPhotCoadd = [forcedPhotCoadd(ff) for ff in filterList]
 
@@ -387,7 +410,7 @@ forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.values(), [])
 gen3repo = env.Command([os.path.join(REPO, "butler.yaml"), os.path.join(REPO, "gen3.sqlite3")],
                        [forcedPhotCcd, forcedPhotCoadd],
                        [getExecutable("daf_butler", "makeButlerRepo.py") + " " + REPO,
-                        getExecutable("ci_hsc", "gen3.py") +  " --verbose"])
+                        getExecutable("ci_hsc", "gen3.py") + " --verbose"])
 env.Alias("gen3repo", gen3repo)
 
 gen3repoValidate = [command("gen3repo-{}".format(k), [gen3repo], v) for k, v in gen3validateCmds.items()]

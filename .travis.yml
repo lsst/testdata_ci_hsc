@@ -6,7 +6,9 @@ matrix:
       python: '3.6'
       install:
       - pip install flake8
-      script: flake8
+      script:
+      - flake8
+      - flake8 --extend-ignore=F821 SConstruct */SConscript
     - env: TEST=shellcheck
       services:
         - docker
