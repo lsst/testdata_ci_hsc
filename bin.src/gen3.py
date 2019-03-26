@@ -21,8 +21,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import argparse
 
+import lsst.log
 from lsst.log import Log
 from lsst.ci.hsc import gen3
 
@@ -45,4 +47,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     log = Log.getLogger("lsst.daf.butler.gen2convert")
     log.setLevel(args.logLevel)
+
+    # Forward python logging to lsst logger
+    lgr = logging.getLogger()
+    lgr.setLevel(logging.INFO if args.logLevel == Log.INFO else logging.DEBUG)
+    lgr.addHandler(lsst.log.LogHandler())
+
     main()
