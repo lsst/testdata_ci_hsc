@@ -9,3 +9,4 @@ bin/
 .pytest_cache
 pytest_session.txt
 .coverage
+_build.*
