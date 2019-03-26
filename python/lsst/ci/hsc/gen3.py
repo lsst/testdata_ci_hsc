@@ -36,11 +36,11 @@ StorageClassFactory().addFromConfig(butlerConfig)
 
 
 def getRegistry():
-    return Registry.fromConfig(butlerConfig)
+    return Registry.fromConfig(butlerConfig, butlerRoot=REPO_ROOT)
 
 
 def getDatastore(registry):
-    return Datastore.fromConfig(config=butlerConfig, registry=registry)
+    return Datastore.fromConfig(config=butlerConfig, registry=registry, butlerRoot=REPO_ROOT)
 
 
 def getButler(collection):
