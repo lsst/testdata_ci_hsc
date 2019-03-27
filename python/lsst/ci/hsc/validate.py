@@ -22,8 +22,9 @@ import lsst.obs.subaru  # noqa
 class IdValueAction(argparse.Action):
     """argparse action callback to process a data ID
 
-    We don't support as full a range of operators as does the pipe_base ArgumentParser
-    (e.g., '^' to join multiple values, and the '..' for a range are NOT supported).
+    We don't support as full a range of operators as does the pipe_base
+    ArgumentParser (e.g., '^' to join multiple values, and the '..' for a
+    range are NOT supported).
     We're just stuffing "key=value" pairs into a list of dicts.
     """
     def __call__(self, parser, namespace, values, option_string):
@@ -125,7 +126,8 @@ class Validation(object):
         self.assertTrue(description + " (%s <= %s)" % (num1, num2), num1 <= num2)
 
     def checkApertureCorrections(self, catalog):
-        """Utility function for derived classes that want to verify that aperture corrections were applied
+        """Utility function for derived classes that want to verify that
+        aperture corrections were applied
         """
         for alg in ("base_PsfFlux", "base_GaussianFlux"):
             self.assertTrue("Aperture correction fields for %s are present." % alg,
@@ -134,7 +136,8 @@ class Validation(object):
                             (("%s_flag_apCorr" % alg) in catalog.schema))
 
     def checkPsfStarsAndFlags(self, catalog, minStellarFraction=0.95, doCheckFlags=True):
-        """Utility function for derived classes that want to verify PSF source selection and flag setting
+        """Utility function for derived classes that want to verify PSF source
+        selection and flag setting
         """
         psfStarsUsed = catalog.get("calib_psf_used")
         extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
@@ -156,8 +159,9 @@ class Validation(object):
         if self.gen3 and dataset.endswith("metadata"):
             return
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(dataset, dataId=dataId))
-        # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
-        # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
+        # Just warn if we can't load a PropertySet or PropertyList; there's a
+        # known issue (DM-4927) that prevents these from being loaded on
+        # Linux, with no imminent resolution.
         try:
             data = self.butler.get(dataset, dataId)
             self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
@@ -246,9 +250,10 @@ class SfmValidation(Validation):
     def validateSources(self, dataId):
         catalog = Validation.validateSources(self, dataId)
         self.checkApertureCorrections(catalog)
-        # Check that at least 95% of the stars we used to model the PSF end up classified as stars. We
-        # certainly need much more purity than that to build good PSF models, but
-        # this should verify that aperture correction and extendendess are running and configured reasonably
+        # Check that at least 95% of the stars we used to model the PSF end up
+        # classified as stars. We  certainly need much more purity than that
+        # to build good PSF models, but this should verify that aperture
+        # correction and extendendess are running and configured reasonably
         # (but it may not be sensitive enough to detect subtle bugs).
         self.checkPsfStarsAndFlags(catalog, minStellarFraction=0.95)
 
@@ -337,15 +342,16 @@ class MeasureValidation(Validation):
                     for child in catalog.getChildren(parent.getId()):
                         if child[column.key] != parent[column.key]:
                             childrenFailed.append(child.getId())
-                         
+
         self.assertTrue("merge_footprint from parent propagated to children {}".format(childrenFailed),
                         len(childrenFailed) == 0)
         self.checkApertureCorrections(catalog)
-        # Check that at least 90% of the stars we used to model the PSF end up classified as stars
-        # on the coadd.  We certainly need much more purity than that to build good PSF models, but
-        # this should verify that flag propagation, aperture correction, and extendendess are all
-        # running and configured reasonably (but it may not be sensitive enough to detect subtle
-        # bugs).
+        # Check that at least 90% of the stars we used to model the PSF end up
+        # classified as stars on the coadd.  We certainly need much more
+        # purity than that to build good PSF models, but this should verify
+        # that flag propagation, aperture correction, and extendendess are all
+        # running and configured reasonably (but it may not be sensitive
+        # enough to detect subtle bugs).
         self.checkPsfStarsAndFlags(catalog, minStellarFraction=0.90, doCheckFlags=False)
 
 

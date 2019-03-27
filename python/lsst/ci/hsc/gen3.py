@@ -31,16 +31,17 @@ converterConfig = Config(os.path.join(getPackageDir("daf_butler"), "config/gen2c
 converterConfig["skymaps"] = {"ci_hsc": os.path.join(REPO_ROOT, "rerun", "ci_hsc")}
 converterConfig["regions"][0]["collection"] = "shared/ci_hsc"
 
-butlerConfig = ButlerConfig(REPO_ROOT)
+searchPaths = [os.path.join(getPackageDir("ci_hsc"), "gen3config"), ]
+butlerConfig = ButlerConfig(REPO_ROOT, searchPaths=searchPaths)
 StorageClassFactory().addFromConfig(butlerConfig)
 
 
 def getRegistry():
-    return Registry.fromConfig(butlerConfig)
+    return Registry.fromConfig(butlerConfig, butlerRoot=REPO_ROOT)
 
 
 def getDatastore(registry):
-    return Datastore.fromConfig(config=butlerConfig, registry=registry)
+    return Datastore.fromConfig(config=butlerConfig, registry=registry, butlerRoot=REPO_ROOT)
 
 
 def getButler(collection):
