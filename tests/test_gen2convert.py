@@ -24,7 +24,7 @@ import unittest
 
 import lsst.utils.tests
 import lsst.afw.image.testUtils  # noqa; injects test methods into TestCase
-from lsst.afw.table import BaseCatalog
+import lsst.meas.algorithms
 from lsst.utils import getPackageDir
 from lsst.daf.butler import Butler, DataId, DatasetOriginInfoDef
 from lsst.daf.persistence import Butler as Butler2
@@ -157,8 +157,7 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsEqual(butler.get(refsByName["bfKernel"]),
                                    instrument.getBrighterFatterKernel())
             defects = butler.get(refsByName["defects"])
-            self.assertIsInstance(defects, BaseCatalog)
-            self.assertEqual(defects.schema.getNames(), {"x0", "y0", "width", "height"})
+            self.assertIsInstance(defects, lsst.meas.algorithms.Defects)
 
     def testBrightObjectMasks(self):
         """Test that bright object masks are included in the Gen3 repo.
