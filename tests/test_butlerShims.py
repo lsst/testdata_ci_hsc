@@ -145,7 +145,7 @@ class ButlerShimsTestCase(lsst.utils.tests.TestCase):
             Butler3.makeRepo(root)
             butler3 = Butler3(root, run="three")
             butler3.registry.registerDatasetType(
-                DatasetType("cat", ["Label"], "SourceCatalog")
+                DatasetType("cat", ["label"], "SourceCatalog")
             )
             butlerShim = ShimButler(butler3)
             catIn = SourceCatalog(SourceCatalog.Table.makeMinimalSchema())
