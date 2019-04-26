@@ -53,7 +53,7 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         # consistent.
         sql = """
             SELECT physical_filter, abstract_filter
-            FROM Dataset
+            FROM dataset
             WHERE dataset_type_name IN (
                 'raw', 'calexp', 'icExp', 'src', 'icSrc',
                 'deepCoadd_directWarp', 'deepCoadd_psfMatchedWarp'
@@ -79,7 +79,7 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
             dataId2 = {"visit": visit, "ccd": detector}
             dataId3 = self.butler.registry.expandDataId(visit=visit, detector=detector, instrument="HSC")
             self.assertEqual(butler2.get("ccdExposureId", dataId2),
-                             self.butler.registry.packDataId("VisitDetector", dataId3))
+                             self.butler.registry.packDataId("visit_detector", dataId3))
 
     def testSkyMapPacking(self):
         """Test that packing Tract+Patch into an integer in Gen3 works and is
@@ -97,8 +97,8 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         for patch in [0, 43, 52]:
             dataId = self.butler.registry.expandDataId(skymap="ci_hsc", tract=0, patch=patch,
                                                        abstract_filter='r')
-            packer1 = self.butler.registry.makeDataIdPacker("TractPatch", dataId)
-            packer2 = self.butler.registry.makeDataIdPacker("TractPatchAbstractFilter", dataId)
+            packer1 = self.butler.registry.makeDataIdPacker("tract_patch", dataId)
+            packer2 = self.butler.registry.makeDataIdPacker("tract_patch_abstract_filter", dataId)
             self.assertNotEqual(packer1.pack(dataId), packer2.pack(dataId))
             self.assertEqual(packer1.unpack(packer1.pack(dataId)),
                              DataId(dataId, dimensions=packer1.dimensions.required))
@@ -130,7 +130,7 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
             self.butler.registry.selectMultipleDatasetTypes(
                 originInfo, expression="",
                 required=["raw", "camera", "bfKernel", "defects"],
-                perDatasetTypeDimensions=["CalibrationLabel"]
+                perDatasetTypeDimensions=["calibration_label"]
             )
         )
         # Query for all rows, with no restriction on having associated calibs.
