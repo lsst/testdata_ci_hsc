@@ -26,17 +26,18 @@ import argparse
 
 import lsst.log
 from lsst.log import Log
-from lsst.ci.hsc import gen3
+from lsst.ci.hsc import gen3, Gen3ButlerWrapper
 
 from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
 
 
-def main():
-    registry = gen3.getRegistry()
-    datastore = gen3.getDatastore(registry)
+def main(config=None):
+    gen3wrapper = Gen3ButlerWrapper(config=config)
+    registry = gen3wrapper.getRegistry()
+    datastore = gen3wrapper.getDatastore(registry)
     walker = gen3.walk()
     gen3.write(walker, registry, datastore)
-    HyperSuprimeCam().writeCuratedCalibrations(gen3.getButler("calib"))
+    HyperSuprimeCam().writeCuratedCalibrations(gen3wrapper.getButler("calib"))
 
 
 if __name__ == "__main__":
@@ -44,6 +45,9 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="store_const", dest="logLevel",
                         default=Log.INFO, const=Log.DEBUG,
                         help="Set the log level to DEBUG.")
+    parser.add_argument("-c", "--config",
+                        help="Path to a butler configuration file to be used instead of the default"
+                             " ci_hsc configuration.")
     args = parser.parse_args()
     log = Log.getLogger("lsst.daf.butler")
     log.setLevel(args.logLevel)
@@ -53,4 +57,4 @@ if __name__ == "__main__":
     lgr.setLevel(logging.INFO if args.logLevel == Log.INFO else logging.DEBUG)
     lgr.addHandler(lsst.log.LogHandler())
 
-    main()
+    main(config=args.config)

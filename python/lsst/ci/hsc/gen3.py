@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+__all__ = ("Gen3ButlerWrapper", "walk", "write")
+
 import os
 
 from lsst.utils import getPackageDir
@@ -32,20 +34,41 @@ converterConfig["skymaps"] = {"ci_hsc": os.path.join(REPO_ROOT, "rerun", "ci_hsc
 converterConfig["regions"][0]["collection"] = "shared/ci_hsc"
 
 searchPaths = [os.path.join(getPackageDir("ci_hsc"), "gen3config"), ]
-butlerConfig = ButlerConfig(REPO_ROOT, searchPaths=searchPaths)
-StorageClassFactory().addFromConfig(butlerConfig)
 
 
-def getRegistry():
-    return Registry.fromConfig(butlerConfig, butlerRoot=REPO_ROOT)
+class Gen3ButlerWrapper:
+    """A class to simplify access to a gen 3 `~lsst.daf.butler.Butler`.
 
+    Parameters
+    ----------
+    config : `~lsst.daf.butler.Config` or `str`, optional
+        Something that can be passed to a `~lsst.daf.butler.ButlerConfig`
+        constructor.  If `None` the configuration will be read from the
+        value of the ``root`` parameter.
+    root : `str`, optional
+        Root directory of the butler repository to use.  Defaults to
+        the ``DATA`` directory in the ``ci_hsc`` package.
+    """
 
-def getDatastore(registry):
-    return Datastore.fromConfig(config=butlerConfig, registry=registry, butlerRoot=REPO_ROOT)
+    def __init__(self, config=None, root=REPO_ROOT):
 
+        self.root = root
+        if config is None:
+            config = self.root
+        self.butlerConfig = ButlerConfig(config, searchPaths=searchPaths)
+        StorageClassFactory().addFromConfig(self.butlerConfig)
 
-def getButler(collection):
-    return Butler(config=butlerConfig, run=collection)
+        # Force the configuration directory to refer to the ci_hsc root
+        self.butlerConfig.configDir = self.root
+
+    def getRegistry(self):
+        return Registry.fromConfig(self.butlerConfig, butlerRoot=self.root)
+
+    def getDatastore(self, registry):
+        return Datastore.fromConfig(config=self.butlerConfig, registry=registry, butlerRoot=self.root)
+
+    def getButler(self, collection):
+        return Butler(config=self.butlerConfig, run=collection)
 
 
 def walk():
