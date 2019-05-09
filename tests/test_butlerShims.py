@@ -153,6 +153,10 @@ class ButlerShimsTestCase(lsst.utils.tests.TestCase):
             butlerShim.put(catIn, "cat", label="four")
             catOut = butlerShim.get("cat", label="four")
             self.assertEqual(list(catIn["id"]), list(catOut["id"]))
+            # Without this the temporary directory can not be removed
+            # if on NFS because these objects have open SQLite registries.
+            del butler3
+            del butlerShim
 
 
 def setup_module(module):
