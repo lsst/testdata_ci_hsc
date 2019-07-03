@@ -1,10 +1,11 @@
 ==========
-``ci_hsc``
+``testdata_ci_hsc``
 ==========
 
-``ci_hsc`` provides test data and script which exercises the LSST stack
-through single frame and coadd processing based on engineering test data from
-Hyper Suprime-Cam.
+``testdata_ci_hsc`` provides the minimum required amount of test data that is
+sufficient to run the LSST software stack from single frame processing through
+coaddition processing.
+
 
 Obtaining test data
 ===================
@@ -23,7 +24,7 @@ Set up the package
 
 The package must be set up in the usual way before running::
 
-  $ cd ci_hsc
+  $ cd testdata_ci_hsc
   $ setup -j -r .
 
 Reference catalog
@@ -33,13 +34,3 @@ An appropriate reference catalog for both astrometry and photometry is
 provided in the ``ps1_pv3_3pi_20170110`` directory. See the ``README.txt``
 file in that directory for details. It is automatically enabled by the default
 HSC processing configuration.
-
-Running the tests
------------------
-
-Execute ``scons``. On a Mac running OSX 10.11 or greater, you must specify a
-Python interpreter followed by a full path to ``scons``::
-
-  $ python $(which scons)
-
-On other systems, simply running ``scons`` should be sufficient.
