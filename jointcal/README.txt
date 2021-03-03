@@ -48,3 +48,7 @@ scp tiger:/projects/HSC/HSC/rerun/price/dm-20841-ci_hsc/jointcal-results/*/0000/
 scp tiger:/projects/HSC/HSC/rerun/price/dm-20841-ci_hsc/jointcal-results/*/0000/jointcal_*-0903988-017.fits .
 scp tiger:/projects/HSC/HSC/rerun/price/dm-20841-ci_hsc/jointcal-results/*/0000/jointcal_*-0903988-023.fits .
 scp tiger:/projects/HSC/HSC/rerun/price/dm-20841-ci_hsc/jointcal-results/*/0000/jointcal_*-0903988-024.fits .
+
+Finally, we convert to the gen3-compatible ExposureCatalogs:
+
+python ./convert_ci_hsc_jointcal_to_exposurecatalogs.py
