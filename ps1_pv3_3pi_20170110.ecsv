@@ -1,0 +1,9 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: filename, datatype: string}
+# - {name: htm7, datatype: int64}
+# schema: astropy-2.0
+filename htm7
+ps1_pv3_3pi_20170110/189584.fits 189584
+ps1_pv3_3pi_20170110/189648.fits 189648
