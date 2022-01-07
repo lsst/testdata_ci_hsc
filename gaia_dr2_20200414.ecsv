@@ -1,0 +1,9 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: filename, datatype: string}
+# - {name: htm7, datatype: int64}
+# schema: astropy-2.0
+filename htm7
+gaia_dr2_20200414/189584.fits 189584
+gaia_dr2_20200414/189648.fits 189648
