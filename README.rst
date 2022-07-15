@@ -22,10 +22,13 @@ Running the tests
 Set up the package
 ------------------
 
-The package must be set up in the usual way before running::
+This package provides the test data for the `ci_hsc`_ package: both this and `ci_hsc`_ must be setup in eups in order to run the tests in `ci_hsc`_.
+One way to accomplish this is as follows::
 
   $ cd testdata_ci_hsc
-  $ setup -j -r .
+  $ setup -r .
+  $ cd PATH_TO_CI_HSC
+  $ setup -kr .
 
 Reference catalog
 -----------------
