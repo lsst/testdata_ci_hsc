@@ -1,5 +1,5 @@
-import lsst.meas.algorithms.ingestIndexReferenceTask
-assert type(config)==lsst.meas.algorithms.ingestIndexReferenceTask.DatasetConfig, 'config is of type %s.%s instead of lsst.meas.algorithms.ingestIndexReferenceTask.DatasetConfig' % (type(config).__module__, type(config).__name__)
+import lsst.meas.algorithms.convertReferenceCatalog
+assert type(config)==lsst.meas.algorithms.convertReferenceCatalog.DatasetConfig, 'config is of type %s.%s instead of lsst.meas.algorithms.convertReferenceCatalog.DatasetConfig' % (type(config).__module__, type(config).__name__)
 import lsst.meas.algorithms.indexerRegistry
 # Version number of the persisted on-disk storage format.
 # Version 0 had Jy as flux units (default 0 for unversioned catalogs).
