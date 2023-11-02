@@ -1,0 +1,12 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: filename, datatype: string}
+# - {name: band, datatype: string}
+# - {name: htm7, datatype: int64}
+# schema: astropy-2.0
+filename band htm7
+injection_catalog_20231002/i/injection_catalog_i_189584.parq i 189584
+injection_catalog_20231002/i/injection_catalog_i_189648.parq i 189648
+injection_catalog_20231002/r/injection_catalog_r_189584.parq r 189584
+injection_catalog_20231002/r/injection_catalog_r_189648.parq r 189648
