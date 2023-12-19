@@ -61,7 +61,7 @@ These files are used to apply external jointcal calibrations during coadd proces
 Reference catalog
 -----------------
 
-Reference catalogs for astrometry and photometry are included in the ``gaia_dr2_20200414/``, ``gaia_dr3_20230707/`` (for astrometry) and ``ps1_pv3_3pi_20170110/`` (for photometry) directories.
+Reference catalogs for astrometry and photometry are included in the ``gaia_dr3_20230707/`` (for astrometry) and ``ps1_pv3_3pi_20170110/`` (for photometry) directories.
 Only the relevant HTM shards that apply to the above detector/visits are included.
 See the ``README.txt`` files in those directories for details.
 They are automatically loaded during the appropriate steps of ``ci_hsc``'s processing.
